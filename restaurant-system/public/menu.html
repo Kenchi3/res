@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สั่งอาหาร - Steak Khunnor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; }
+        .menu-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.2s; }
+    </style>
+</head>
+<body class="bg-gray-50 pb-32">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-md sticky top-0 z-50 p-4">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-orange-600">🥩 Steak Khunnor</h1>
+            <!-- แก้ไขให้แสดงเลขโต๊ะจาก Javascript -->
+            <div class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm">
+                โต๊ะ <span id="tableNumDisplay" class="font-bold">--</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menu Grid -->
+    <div class="max-w-4xl mx-auto p-6">
+        <div id="menuList" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- Cart Footer -->
+    <div id="cartFooter" class="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.1)] p-4 transform translate-y-full transition-transform duration-300">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div>
+                <p class="text-gray-500 text-sm">รวมทั้งหมด</p>
+                <p class="text-2xl font-bold text-orange-600" id="totalPrice">฿0</p>
+            </div>
+            <button onclick="confirmOrder()" class="bg-green-500 text-white px-8 py-3 rounded-xl font-semibold hover:bg-green-600 shadow-lg active:scale-95 transition">
+                ยืนยันออเดอร์
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io(); // เชื่อมต่อ Socket
+        
+        // --- 1. ตั้งค่าเลขโต๊ะจาก URL ---
+        const pathParts = window.location.pathname.split('/');
+        // pathParts = ["", "table", "5"] เช่นนี้
+        const tableId = pathParts[2] || 'ไม่ระบุ'; 
+        document.getElementById('tableNumDisplay').innerText = tableId; // อัพเดทข้อความบน Navbar
+
+        // --- 2. ข้อมูลเมนูอาหาร ---
+        const menuItems = [
+            { id: 1, name: "สเต็กเนื้อริบอาย", price: 299, img: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400" },
+            { id: 2, name: "สเต็กหม่ำซี่", price: 350, img: "https://images.unsplash.com/photo-1558030006-450675393462?w=400" },
+            { id: 3, name: "สปาเก็ตตี้คาโบนาร่า", price: 159, img: "https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=400" },
+            { id: 4, name: "สลัดซีซาร์", price: 99, img: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=400" },
+            { id: 5, name: "ซุปเห็ดทรัฟเฟิล", price: 120, img: "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=400" },
+            { id: 6, name: "เฟรนช์ฟรายส์", price: 79, img: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400" }
+        ];
+
+        let cart = [];
+
+        // --- 3. ฟังก์ชันวาดเมนู ---
+        function renderMenu() {
+            const list = document.getElementById('menuList');
+            list.innerHTML = menuItems.map(item => `
+                <div class="menu-card bg-white rounded-xl shadow overflow-hidden flex flex-col">
+                    <img src="${item.img}" class="w-full h-32 object-cover" alt="${item.name}">
+                    <div class="p-3 flex flex-col flex-grow">
+                        <h3 class="font-semibold text-gray-800">${item.name}</h3>
+                        <div class="mt-auto pt-2 flex justify-between items-center">
+                            <span class="text-orange-500 font-bold">฿${item.price}</span>
+                            <button onclick="addToCart(${item.id})" class="bg-orange-500 text-white text-sm px-3 py-1 rounded-full hover:bg-orange-600 shadow">
+                                + เพิ่ม
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- 4. ฟังก์ชันจัดการตะกร้า ---
+        function addToCart(id) {
+            const item = menuItems.find(m => m.id === id);
+            const exist = cart.find(c => c.id === id);
+            if (exist) {
+                exist.qty++;
+            } else {
+                cart.push({ ...item, qty: 1 });
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const count = cart.reduce((sum, item) => sum + item.qty, 0);
+            
+            document.getElementById('totalPrice').innerText = `฿${total}`;
+            
+            const footer = document.getElementById('cartFooter');
+            // ถ้ามีสินค้า ให้แสดง Footer
+            if (count > 0) {
+                footer.classList.remove('translate-y-full');
+            } else {
+                footer.classList.add('translate-y-full');
+            }
+        }
+
+        // --- 5. ฟังก์ชันส่งออเดอร์ (เวอร์ชันแก้ไขแล้ว) ---
+        async function confirmOrder() {
+            if (cart.length === 0) return alert("กรุณาเลือกอาหารก่อนครับ");
+            
+            const orderData = {
+                tableNo: tableId, // ใช้เลขโต๊ะที่ดึงมาจาก URL
+                items: cart,
+                totalPrice: cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
+            };
+
+            // ส่งข้อมูลไป Server
+            try {
+                const response = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    alert(`✅ ส่งออเดอร์จากโต๊ะ ${tableId} เรียบร้อยแล้วค่ะ!`);
+                    cart = []; // เคลียร์ตะกร้า
+                    updateUI(); // อัพเดทหน้าจอ
+                } else {
+                    alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+            }
+        }
+
+        // เริ่มต้นระบบ
+        renderMenu();
+    </script>
+</body>
+</html>
