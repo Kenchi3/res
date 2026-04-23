@@ -34,9 +34,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 let orders = [];
 let orderIdCounter = 1001;
 let menuItems = [
-    // ... (โค้ดข้อมูลเมนูเดิมเหมือนเดิม)
-    { id: 1, name: "สเต็กเนื้อริบอาย 300g", price: 350, img: "/uploads/steak-default.jpg", category: "🥩 สเต็กสุดพิเศษ" }, 
-    // แก้ default img ให้ชี้ไปที่ uploads หรือใช้ url เดิมก็ได้
+    { id: 1, name: "สเต็กเนื้อริบอาย 300g", price: 350, img: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400", category: "🥩 สเต็กสุดพิเศษ", status: 'available' },
+    { id: 2, name: "สเต็กทีโบน", price: 450, img: "https://images.unsplash.com/photo-1558030006-450675393462?w=400", category: "🥩 สเต็กสุดพิเศษ", status: 'available' },
+    { id: 3, name: "สเต็กพอร์กชอป", price: 220, img: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=400", category: "🥩 สเต็กสุดพิเศษ", status: 'available' },
+    { id: 4, name: "เฟรนช์ฟรายส์", price: 79, img: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400", category: "🍟 ของทานเล่น", status: 'available' },
+    { id: 5, name: "ซุปเห็ดทรัฟเฟิล", price: 120, img: "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=400", category: "🍟 ของทานเล่น", status: 'available' },
+    { id: 6, name: "สลัดซีซาร์", price: 99, img: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=400", category: "🍟 ของทานเล่น", status: 'available' },
+    { id: 7, name: "เซ็ตริบอาย", price: 450, img: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=400", category: "🍽️ เซ็ตมื้อใหญ่", status: 'available' },
+    { id: 8, name: "เซ็ตคู่รัก", price: 799, img: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400", category: "🍽️ เซ็ตมื้อใหญ่", status: 'available' }
 ];
 let menuIdCounter = 9;
 
@@ -70,8 +75,6 @@ app.get('/api/menu', (req, res) => res.json(menuItems));
 // 'img' คือ name ของ input file ใน form
 app.post('/api/menu', upload.single('img'), (req, res) => {
     const { name, price, category } = req.body;
-    
-    // ถ้ามีการอัพโหลดไฟล์ จะได้ path ที่ req.file
     const imgPath = req.file ? `/uploads/${req.file.filename}` : '';
 
     const newItem = { 
@@ -79,7 +82,8 @@ app.post('/api/menu', upload.single('img'), (req, res) => {
         name, 
         price: parseFloat(price), 
         img: imgPath, 
-        category 
+        category,
+        status: 'available' // <--- เพิ่มบรรทัดนี้
     };
     menuItems.push(newItem);
     res.status(201).json(newItem);
@@ -91,9 +95,9 @@ app.put('/api/menu/:id', upload.single('img'), (req, res) => {
     const index = menuItems.findIndex(m => m.id === id);
     
     if (index !== -1) {
-        const { name, price, category } = req.body;
+        // แก้ไข: ดึง status ออกมาจาก req.body ด้วย
+        const { name, price, category, status } = req.body;
         
-        // ถ้ามีไฟล์ใหม่ส่งมา ให้ใช้ path ใหม่ ถ้าไม่มีให้ใช้ของเก่า
         const imgPath = req.file ? `/uploads/${req.file.filename}` : menuItems[index].img;
 
         menuItems[index] = { 
@@ -101,11 +105,37 @@ app.put('/api/menu/:id', upload.single('img'), (req, res) => {
             name, 
             price: parseFloat(price), 
             category,
-            img: imgPath
+            img: imgPath,
+            status: status || menuItems[index].status // เพิ่ม: อัพเดท status ถ้ามีการส่งมา
         };
         res.json(menuItems[index]);
     } else {
         res.status(404).json({ error: "Not found" });
+    }
+});
+
+// API: Update Order (สำหรับลบรายการอาหารออก)
+app.put('/api/orders/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { items } = req.body; // รับรายการ items ใหม่ที่ลบแล้ว
+    const orderIndex = orders.findIndex(o => o.id === id);
+
+    if (orderIndex !== -1) {
+        // คำนวณราคาใหม่
+        const newTotalPrice = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+        orders[orderIndex].items = items;
+        orders[orderIndex].totalPrice = newTotalPrice;
+
+        // ถ้า items หมดแล้ว ให้ลบออเดอร์นั้นทิ้งเลย (Optional)
+        if (items.length === 0) {
+            orders = orders.filter(o => o.id !== id);
+            res.json({ success: true, deleted: true });
+        } else {
+            res.json(orders[orderIndex]);
+        }
+    } else {
+        res.status(404).json({ error: "Order not found" });
     }
 });
 

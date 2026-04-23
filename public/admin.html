@@ -11,8 +11,6 @@
         body { font-family: 'Kanit', sans-serif; }
         .card { animation: slideIn 0.4s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -25,24 +23,18 @@
         <h1 class="text-xl font-bold">👨‍🍳 หน้าครัว (Admin)</h1>
         <div class="flex items-center gap-3">
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
-            
-            <!-- เพิ่มปุ่มนี้เข้าไป -->
             <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 📋 จัดการเมนู
             </a>
-            
             <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 💰 สรุปยอดวันนี้
             </button>
         </div>
     </nav>
 
-
     <!-- Main Content -->
     <div class="p-6 max-w-6xl mx-auto">
-        <div id="orderList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Orders will render here -->
-        </div>
+        <div id="orderList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         <div id="emptyState" class="text-center text-gray-400 py-20 hidden">
             <h2 class="text-2xl">ยังไม่มีออเดอร์เข้ามาครับ</h2>
         </div>
@@ -55,18 +47,14 @@
                 <h2 class="text-xl font-bold text-white">📊 สรุปยอดขายวันนี้</h2>
                 <button onclick="closeSummaryModal()" class="text-white text-2xl hover:opacity-70">&times;</button>
             </div>
-            
             <div class="p-5 overflow-y-auto flex-grow">
                 <div class="mb-4 p-4 bg-green-50 rounded-xl border border-green-200">
                     <p class="text-gray-600">ยอดขายรวมทั้งสิ้น</p>
                     <p class="text-4xl font-bold text-green-600" id="summaryTotal">฿0</p>
                 </div>
                 <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย:</h3>
-                <div id="summaryList" class="space-y-2 text-sm">
-                    <!-- List here -->
-                </div>
+                <div id="summaryList" class="space-y-2 text-sm"></div>
             </div>
-
             <div class="p-5 border-t bg-gray-50 rounded-b-2xl">
                 <button onclick="clearAllOrders()" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg transition">
                     ยืนยันและล้างออเดอร์ทั้งหมด
@@ -75,26 +63,22 @@
         </div>
     </div>
     
-
     <script>
         const socket = io();
         let orders = [];
 
-        // 1. โหลดข้อมูลเริ่มต้น
         async function loadInitialOrders() {
             const res = await fetch('/api/orders');
             orders = await res.json();
             render();
         }
 
-        // 2. รับข้อมูล Real-time
         socket.on('new_order', (order) => {
             orders.unshift(order);
             playBeep();
             render();
         });
 
-        // เสียงแจ้งเตือน
         function playBeep() {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
@@ -107,29 +91,56 @@
             osc.start(); osc.stop(ctx.currentTime + 0.5);
         }
 
-        // 3. อัพเดทสถานะ
         function updateStatus(id, status) {
             const order = orders.find(o => o.id === id);
             if(order) {
                 order.status = status;
                 render();
-                // ในกรณีจริงควรส่ง update ไป server ด้วย แต่นี่เป็น Demo เก็บในหน่วยความจำชั่วคราว
             }
         }
 
-        // 4. ฟังก์ชัน Group ข้อมูลตามโต๊ะ
+        // --- NEW: ฟังก์ชันลบรายการอาหารออกจากออเดอร์ ---
+        async function removeItemFromOrder(orderId, itemId) {
+            if(!confirm('ยืนยันการลบรายการนี้ออกจากออเดอร์?')) return;
+
+            const order = orders.find(o => o.id === orderId);
+            if(!order) return;
+
+            // กรองเอา item ที่ไม่ต้องการออก
+            const newItems = order.items.filter(i => i.id !== itemId);
+
+            // ส่งอัพเดทไป Server
+            const res = await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: newItems })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.deleted) {
+                    // ถ้าออเดอร์หมด ให้ลบออกจากหน้าจอ
+                    orders = orders.filter(o => o.id !== orderId);
+                } else {
+                    // อัพเดทข้อมูลใน local state
+                    order.items = newItems;
+                    order.totalPrice = data.totalPrice;
+                }
+                render();
+            } else {
+                alert('เกิดข้อผิดพลาดในการลบ');
+            }
+        }
+
         function groupByTable() {
             const grouped = {};
             orders.forEach(order => {
-                if (!grouped[order.tableNo]) {
-                    grouped[order.tableNo] = [];
-                }
+                if (!grouped[order.tableNo]) grouped[order.tableNo] = [];
                 grouped[order.tableNo].push(order);
             });
             return grouped;
         }
 
-        // 5. Render หน้าจอ
         function render() {
             const list = document.getElementById('orderList');
             const empty = document.getElementById('emptyState');
@@ -148,24 +159,19 @@
             const grouped = groupByTable();
             let html = '';
 
-            // Object.keys(grouped).sort() จะเรียงโต๊ะ 1, 2, 3...
             Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b)).forEach(tableNo => {
                 const tableOrders = grouped[tableNo];
-                
-                // หาสถานะสูงสุดของโต๊ะนี้ (ถ้ามีอันไหนเป็น New ให้ขึ้นสีแดงทั้งกล่อง)
                 const hasNew = tableOrders.some(o => o.status === 'new');
                 const borderClass = hasNew ? 'border-red-500 border-2' : 'border-gray-200';
                 const headerBg = hasNew ? 'bg-red-50' : 'bg-white';
 
                 html += `
                     <div class="card bg-white rounded-xl shadow-md overflow-hidden border ${borderClass}">
-                        <!-- Header โต๊ะ -->
                         <div class="${headerBg} p-4 border-b flex justify-between items-center">
                             <h3 class="text-2xl font-bold text-gray-800">โต๊ะ ${tableNo}</h3>
                             <span class="text-xs font-bold text-gray-400">${tableOrders.length} รายการสั่งซื้อ</span>
                         </div>
                         
-                        <!-- รายการอาหารภายในโต๊ะ -->
                         <div class="divide-y">
                             ${tableOrders.map(order => {
                                 let statusHtml = '';
@@ -188,8 +194,14 @@
                                         <span class="text-xs text-gray-400">Order #${order.id}</span>
                                         ${statusHtml}
                                     </div>
-                                    <div class="text-sm text-gray-700">
-                                        ${order.items.map(i => `<div>• ${i.name} <span class="font-bold">x${i.qty}</span></div>`).join('')}
+                                    <div class="text-sm text-gray-700 space-y-1">
+                                        ${order.items.map(i => `
+                                            <div class="flex justify-between items-center group">
+                                                <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
+                                                <!-- ปุ่มลบรายการ (ฉุกเฉิน) -->
+                                                <button onclick="removeItemFromOrder(${order.id}, ${i.id})" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
+                                            </div>
+                                        `).join('')}
                                     </div>
                                     <div class="flex justify-between items-center mt-2">
                                         <span class="font-bold text-blue-600">฿${order.totalPrice}</span>
@@ -236,12 +248,11 @@
 
         async function clearAllOrders() {
             if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างออเดอร์ทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้')) return;
-
             try {
                 const res = await fetch('/api/orders', { method: 'DELETE' });
                 if (res.ok) {
-                    orders = []; // ล้างข้อมูลใน Frontend
-                    render(); // วาดหน้าจอใหม่
+                    orders = [];
+                    render();
                     closeSummaryModal();
                     alert('ล้างข้อมูลเรียบร้อยแล้วครับ!');
                 }
@@ -250,7 +261,6 @@
             }
         }
 
-        // Initialize
         loadInitialOrders();
     </script>
 </body>
