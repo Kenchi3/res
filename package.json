@@ -1,7 +1,15 @@
-"dependencies": {
+{
+  "name": "steak-khunnor",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
-    "mongoose": "^8.x.x", 
-    "dotenv": "^16.x.x",
+    "mongoose": "^8.3.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.2"
+  }
 }
