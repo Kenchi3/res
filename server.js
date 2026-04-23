@@ -31,15 +31,15 @@ const Menu = mongoose.model('Menu', menuSchema);
 const orderSchema = new mongoose.Schema({
   tableNo: String,
   items: [{
-    id: Number, // id ของเมนู
+    id: String, // <--- แก้จาก Number เป็น String ตรงนี้ครับ
     name: String,
     price: Number,
     qty: Number
   }],
   totalPrice: Number,
-  status: { type: String, default: 'new' }, // new, cooking, done, paid
-  time: String, // เวลาแบบสั้น
-  createdAt: { type: Date, default: Date.now } // เวลาแบบเต็มสำหรับสถิติ
+  status: { type: String, default: 'new' },
+  time: String,
+  createdAt: { type: Date, default: Date.now }
 });
 orderSchema.set('toJSON', { virtuals: true });
 const Order = mongoose.model('Order', orderSchema);
