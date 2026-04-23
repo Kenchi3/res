@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - สถิติการขาย</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ใช้ Chart.js สำหรับกราฟ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Kanit', sans-serif; } </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-40 flex justify-between items-center px-6">
+        <h1 class="text-xl font-bold">📈 สถิติการขาย</h1>
+        <a href="/admin03030853khunnor" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            ⬅️ กลับหน้าครัว
+        </a>
+    </nav>
+
+    <div class="p-6 max-w-7xl mx-auto">
+        <!-- Filter Section -->
+        <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex gap-2">
+                <button onclick="setFilter('day')" id="btn-day" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">วันนี้</button>
+                <button onclick="setFilter('week')" id="btn-week" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">สัปดาห์นี้</button>
+                <button onclick="setFilter('month')" id="btn-month" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">เดือนนี้</button>
+                <button onclick="setFilter('year')" id="btn-year" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">ปีนี้</button>
+                <button onclick="setFilter('all')" id="btn-all" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">ทั้งหมด</button>
+            </div>
+            <div class="text-gray-600 font-semibold">
+                ข้อมูล ณ วันที่: <span id="currentDateDisplay"></span>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+                <p class="text-gray-500 text-sm">รายได้รวม</p>
+                <p class="text-3xl font-bold text-green-600" id="totalRevenue">฿0</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
+                <p class="text-gray-500 text-sm">จำนวนออเดอร์</p>
+                <p class="text-3xl font-bold text-blue-600" id="totalOrders">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-orange-500">
+                <p class="text-gray-500 text-sm">ราคาเฉลี่ย/ออเดอร์</p>
+                <p class="text-3xl font-bold text-orange-600" id="avgOrder">฿0</p>
+            </div>
+        </div>
+
+        <!-- Charts & Lists -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Best Sellers -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">🏆 เมนูขายดี (Top 5)</h2>
+                <div id="topSellers" class="space-y-3">
+                    <!-- Rendered here -->
+                </div>
+            </div>
+
+            <!-- Sales Graph -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">📊 กราฟยอดขายรายวัน</h2>
+                <canvas id="salesChart" height="200"></canvas>
+            </div>
+        </div>
+        
+        <!-- Warning -->
+        <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl shadow text-sm text-yellow-800">
+            <p class="font-bold">⚠️ ข้อจำกัดของระบบ Demo:</p>
+            <p>ข้อมูลสถิตินี้อ้างอิงจากหน่วยความจำ (Memory) ของ Server ณ ปัจจุบัน หาก Restart Server ข้อมูลจะหายทั้งหมด เหมาะสำหรับดูสถิติระหว่างวันเท่านั้น</p>
+        </div>
+    </div>
+
+    <script>
+        let allOrders = [];
+        let salesChart = null;
+        let currentFilter = 'day';
+
+        // 1. โหลดข้อมูล
+        async function loadData() {
+            const res = await fetch('/api/orders');
+            allOrders = await res.json();
+            
+            // กรองเอาเฉพาะออเดอร์ที่ชำระเงินแล้ว (status: 'paid') เพื่อความแม่นยำของสถิติ
+            // หมายเหตุ: ถ้าต้องการนับทุกสถานะให้เอา filter นี้ออก
+            // allOrders = allOrders.filter(o => o.status === 'paid'); 
+            // *ในตัวอย่างนี้จะนับทุกออเดอร์ที่เข้ามา เพราะระบบยังไม่มีตัวแยกออเดอร์ที่ยกเลิก*
+            
+            applyFilter();
+        }
+
+        // 2. ตั้งค่า Filter
+        function setFilter(type) {
+            currentFilter = type;
+            
+            // UI Update
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => btn.classList.remove('bg-blue-500', 'text-white'));
+            document.getElementById(`btn-${type}`).classList.add('bg-blue-500', 'text-white');
+            
+            applyFilter();
+        }
+
+        function applyFilter() {
+            const now = new Date();
+            let filtered = [];
+            let label = "";
+
+            if (currentFilter === 'day') {
+                label = "วันนี้";
+                filtered = allOrders.filter(o => {
+                    const d = new Date(o.createdAt);
+                    return d.toDateString() === now.toDateString();
+                });
+            } else if (currentFilter === 'week') {
+                label = "สัปดาห์นี้";
+                // อย่างง่าย: ย้อนหลัง 7 วัน
+                const weekAgo = new Date(now.setDate(now.getDate() - 7));
+                filtered = allOrders.filter(o => new Date(o.createdAt) >= weekAgo);
+            } else if (currentFilter === 'month') {
+                label = "เดือนนี้";
+                filtered = allOrders.filter(o => {
+                    const d = new Date(o.createdAt);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                });
+            } else if (currentFilter === 'year') {
+                label = "ปีนี้";
+                filtered = allOrders.filter(o => {
+                    const d = new Date(o.createdAt);
+                    return d.getFullYear() === now.getFullYear();
+                });
+            } else {
+                label = "ทั้งหมด";
+                filtered = allOrders;
+            }
+
+            document.getElementById('currentDateDisplay').innerText = label;
+            renderStats(filtered);
+            renderChart(filtered);
+        }
+
+        // 3. คำนวณและแสดงผล
+        function renderStats(data) {
+            // Summary
+            const totalRevenue = data.reduce((sum, o) => sum + o.totalPrice, 0);
+            const totalOrders = data.length;
+            const avg = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+            document.getElementById('totalRevenue').innerText = `฿${totalRevenue.toLocaleString()}`;
+            document.getElementById('totalOrders').innerText = totalOrders;
+            document.getElementById('avgOrder').innerText = `฿${avg.toFixed(0)}`;
+
+            // Top Sellers
+            const itemsMap = {};
+            data.forEach(o => {
+                o.items.forEach(item => {
+                    if (!itemsMap[item.name]) itemsMap[item.name] = { qty: 0, revenue: 0 };
+                    itemsMap[item.name].qty += item.qty;
+                    itemsMap[item.name].revenue += item.price * item.qty;
+                });
+            });
+
+            const sortedItems = Object.entries(itemsMap)
+                .map(([name, data]) => ({ name, ...data }))
+                .sort((a, b) => b.qty - a.qty)
+                .slice(0, 5);
+
+            const topSellersDiv = document.getElementById('topSellers');
+            if (sortedItems.length === 0) {
+                topSellersDiv.innerHTML = '<p class="text-gray-400 text-center py-4">ไม่มีข้อมูล</p>';
+            } else {
+                topSellersDiv.innerHTML = sortedItems.map((item, index) => `
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl font-bold text-gray-300 w-8">${index + 1}</span>
+                            <div>
+                                <p class="font-semibold text-gray-800">${item.name}</p>
+                                <p class="text-xs text-gray-500">${item.qty} จาน</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-green-600">฿${item.revenue.toLocaleString()}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 4. กราฟ
+        function renderChart(data) {
+            // Group by Date
+            const dailySales = {};
+            data.forEach(o => {
+                if(!o.createdAt) return;
+                const dateStr = new Date(o.createdAt).toLocaleDateString('th-TH'); // e.g., 27/10/2023
+                if (!dailySales[dateStr]) dailySales[dateStr] = 0;
+                dailySales[dateStr] += o.totalPrice;
+            });
+
+            const labels = Object.keys(dailySales);
+            const values = Object.values(dailySales);
+
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            
+            if (salesChart) salesChart.destroy();
+
+            salesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ยอดขาย (บาท)',
+                        data: values,
+                        backgroundColor: 'rgba(249, 115, 22, 0.6)',
+                        borderColor: 'rgba(249, 115, 22, 1)',
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Init
+        loadData();
+    </script>
+</body>
+</html>
