@@ -61,11 +61,6 @@
                 <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย:</h3>
                 <div id="summaryList" class="space-y-2 text-sm"></div>
             </div>
-            <div class="p-5 border-t bg-gray-50 rounded-b-2xl">
-                <button onclick="clearAllOrders()" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg transition">
-                    ยืนยันและล้างออเดอร์ทั้งหมด
-                </button>
-            </div>
         </div>
     </div>
     
@@ -306,20 +301,6 @@
             document.getElementById('summaryModal').classList.add('hidden');
         }
 
-        async function clearAllOrders() {
-            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างออเดอร์ทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้')) return;
-            try {
-                const res = await fetch('/api/orders', { method: 'DELETE' });
-                if (res.ok) {
-                    orders = [];
-                    render();
-                    closeSummaryModal();
-                    alert('ล้างข้อมูลเรียบร้อยแล้วครับ!');
-                }
-            } catch (err) {
-                alert('เกิดข้อผิดพลาดในการล้างข้อมูล');
-            }
-        }
 
         loadInitialOrders();
     </script>
