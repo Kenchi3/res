@@ -186,8 +186,11 @@
                                 <h3 class="font-semibold text-gray-800 text-sm md:text-base flex-grow leading-tight">${item.name}</h3>
                                 <div class="mt-3 flex justify-between items-center">
                                     <span class="text-orange-600 font-bold text-lg">฿${item.price}</span>
-                                    <!-- ใช้ตัวแปร buttonHtml -->
-                                    ${buttonHtml}
+                                    <!-- แก้ไขตรงนี้: เพิ่ม single quote ครอบ ${item.id} -->
+                                    ${isUnavailable 
+                                        ? '<span class="bg-gray-400 text-white text-sm px-4 py-1.5 rounded-lg shadow cursor-not-allowed">หมด</span>' 
+                                        : `<button onclick="addToCart('${item.id}')" class="bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow border border-orange-600 active:scale-90 transition font-medium">เพิ่ม</button>`
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -294,10 +297,11 @@
                         <p class="text-orange-500 font-bold text-sm">฿${item.price} x ${item.qty} = ฿${item.price * item.qty}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="decreaseQty(${item.id})" class="w-8 h-8 bg-orange-200 text-orange-700 rounded-full font-bold hover:bg-orange-300 text-xl flex items-center justify-center">-</button>
+                        <!-- แก้ไข: เพิ่ม single quote ครอบ ID -->
+                        <button onclick="decreaseQty('${item.id}')" class="w-8 h-8 bg-orange-200 text-orange-700 rounded-full font-bold hover:bg-orange-300 text-xl flex items-center justify-center">-</button>
                         <span class="w-8 text-center font-bold">${item.qty}</span>
-                        <button onclick="addToCart(${item.id})" class="w-8 h-8 bg-orange-500 text-white rounded-full font-bold hover:bg-orange-600 text-xl flex items-center justify-center">+</button>
-                        <button onclick="removeItem(${item.id})" class="w-8 h-8 bg-red-100 text-red-500 rounded-full hover:bg-red-200 flex items-center justify-center ml-1">
+                        <button onclick="addToCart('${item.id}')" class="w-8 h-8 bg-orange-500 text-white rounded-full font-bold hover:bg-orange-600 text-xl flex items-center justify-center">+</button>
+                        <button onclick="removeItem('${item.id}')" class="w-8 h-8 bg-red-100 text-red-500 rounded-full hover:bg-red-200 flex items-center justify-center ml-1">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>

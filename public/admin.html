@@ -228,13 +228,15 @@
 
                                 if (order.status === 'new') {
                                     statusHtml = '<span class="text-red-600 font-bold text-xs animate-pulse">🔔 รอทำ</span>';
-                                    btnHtml = `<button onclick="updateStatus(${order.id}, 'cooking')" class="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 rounded font-semibold">เริ่มทำ</button>`;
+                                    // แก้ไข: เพิ่ม single quote
+                                    btnHtml = `<button onclick="updateStatus('${order.id}', 'cooking')" class="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 rounded font-semibold">เริ่มทำ</button>`;
                                 } else if (order.status === 'cooking') {
                                     statusHtml = '<span class="text-yellow-600 font-bold text-xs">🔥 กำลังทำ</span>';
-                                    btnHtml = `<button onclick="updateStatus(${order.id}, 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`;
+                                    // แก้ไข: เพิ่ม single quote
+                                    btnHtml = `<button onclick="updateStatus('${order.id}', 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`;
                                 } else {
                                     statusHtml = '<span class="text-green-600 font-bold text-xs">✅ เสร็จ</span>';
-                                    btnHtml = ''; // ถ้าเสร็จแล้วยังไม่ต้องมีปุ่ม รอรวมโต๊ะ
+                                    btnHtml = ''; 
                                 }
 
                                 return `
@@ -247,7 +249,8 @@
                                         ${order.items.map(i => `
                                             <div class="flex justify-between items-center group">
                                                 <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
-                                                <button onclick="removeItemFromOrder(${order.id}, ${i.id})" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
+                                                <!-- แก้ไข: เพิ่ม single quote ทั้ง orderId และ itemId -->
+                                                <button onclick="removeItemFromOrder('${order.id}', '${i.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
                                             </div>
                                         `).join('')}
                                     </div>
@@ -260,7 +263,6 @@
                             }).join('')}
                         </div>
                         
-                        <!-- ส่วน Footer ของโต๊ะ (ปุ่มชำระบิล) -->
                         ${allDone ? `
                             <div class="p-3 bg-blue-50 border-t border-blue-100">
                                 <button onclick="confirmPayment('${tableNo}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold shadow-md transition">
@@ -270,7 +272,7 @@
                         ` : ''}
                     </div>
                 `;
-            });
+                });
 
             list.innerHTML = html;
         }

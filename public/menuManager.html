@@ -114,7 +114,6 @@
                         <h2 class="section-header text-2xl font-bold text-gray-800">${category}</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             ${grouped[category].map(m => {
-                                // Check status
                                 const isUnavailable = m.status === 'unavailable';
                                 const cardClass = isUnavailable ? 'menu-unavailable' : '';
                                 const statusBadge = isUnavailable ? '<span class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">หมดชั่วคราว</span>' : '';
@@ -128,13 +127,14 @@
                                         <p class="text-orange-600 font-bold text-xl mt-1">฿${m.price}</p>
                                     </div>
                                     <div class="border-t p-3 bg-gray-50 grid grid-cols-3 gap-2">
-                                        <button onclick="editMenu(${m.id})" class="bg-yellow-400 hover:bg-yellow-500 text-white py-2 rounded-lg text-xs font-semibold shadow">แก้ไข</button>
-                                        <button onclick="deleteMenu(${m.id})" class="bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-xs font-semibold shadow">ลบ</button>
+                                        <!-- แก้ไข: เพิ่ม single quote ครอบ ${m.id} -->
+                                        <button onclick="editMenu('${m.id}')" class="bg-yellow-400 hover:bg-yellow-500 text-white py-2 rounded-lg text-xs font-semibold shadow">แก้ไข</button>
+                                        <button onclick="deleteMenu('${m.id}')" class="bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-xs font-semibold shadow">ลบ</button>
                                         
                                         <!-- ปุ่ม Toggle Status -->
                                         ${isUnavailable 
-                                            ? `<button onclick="toggleStatus(${m.id}, 'available')" class="bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-xs font-semibold shadow">เปิด</button>` 
-                                            : `<button onclick="toggleStatus(${m.id}, 'unavailable')" class="bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-xs font-semibold shadow">ปิด</button>`
+                                            ? `<button onclick="toggleStatus('${m.id}', 'available')" class="bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-xs font-semibold shadow">เปิด</button>` 
+                                            : `<button onclick="toggleStatus('${m.id}', 'unavailable')" class="bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg text-xs font-semibold shadow">ปิด</button>`
                                         }
                                     </div>
                                 </div>
