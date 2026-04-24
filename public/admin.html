@@ -49,7 +49,10 @@
     <div id="summaryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div class="p-5 border-b flex justify-between items-center bg-green-600 rounded-t-2xl">
-                <h2 class="text-xl font-bold text-white">📊 สรุปยอดขายวันนี้</h2>
+                <div>
+                    <h2 class="text-xl font-bold text-white">📊 สรุปยอดขายวันนี้</h2>
+                    <p class="text-xs text-green-100 mt-1" id="currentDateDisplay"></p>
+                </div>
                 <button onclick="closeSummaryModal()" class="text-white text-2xl hover:opacity-70">&times;</button>
             </div>
             <div class="p-5 overflow-y-auto flex-grow">
@@ -69,7 +72,7 @@
                     </div>
                 </div>
                 
-                <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย:</h3>
+                <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย (วันนี้):</h3>
                 <div id="summaryList" class="space-y-2 text-sm"></div>
             </div>
         </div>
@@ -120,7 +123,6 @@
             }
         }
 
-        // --- Function สำหรับชำระบิลโต๊ะ (แก้ไขใหม่) ---
         async function confirmPayment(tableNo, method) {
             const methodText = method === 'cash' ? 'เงินสด' : 'โอนเงิน';
             if(!confirm(`ยืนยันชำระบิล โต๊ะ ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
@@ -173,15 +175,6 @@
             } else {
                 alert('เกิดข้อผิดพลาดในการลบ');
             }
-        }
-
-        function groupByTable() {
-            const grouped = {};
-            orders.forEach(order => {
-                if (!grouped[order.tableNo]) grouped[order.tableNo] = [];
-                grouped[order.tableNo].push(order);
-            });
-            return grouped;
         }
 
         function render() {
@@ -279,13 +272,55 @@
             list.innerHTML = html;
         }
 
-        // --- Summary Functions (แก้ไขใหม่) ---
+        // --- Helper Functions for Thai Time ---
+        
+        // ฟังก์ชันตรวจสอบว่าวันที่ของออเดอร์ตรงกับวันนี้ตามเวลาไทยหรือไม่
+        function isInTodayThaiTime(dateString) {
+            if (!dateString) return false;
+            
+            // แปลงวันที่ของออเดอร์เป็น Object แล้วจัด format เป็นเวลาไทย
+            const orderDate = new Date(dateString);
+            const thaiOrderDate = new Date(orderDate.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+            
+            // หาเวลาปัจจุบันในโซนไทย
+            const now = new Date();
+            const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+            
+            // เริ่มต้นของวัน (00:00:00) ตามเวลาไทย
+            const startOfDay = new Date(thaiNow);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            // สิ้นสุดของวัน (23:59:59.999) ตามเวลาไทย
+            const endOfDay = new Date(thaiNow);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            // เช็คว่าวันที่ออเดอร์อยู่ระหว่าง startOfDay และ endOfDay หรือไม่
+            return thaiOrderDate >= startOfDay && thaiOrderDate <= endOfDay;
+        }
+
+        function formatThaiDate(dateObj) {
+            return dateObj.toLocaleDateString('th-TH', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        // --- Summary Functions (ที่ถูกแก้ไขให้ Reset ตอนเที่ยงคืน) ---
         function openSummaryModal() {
+            // 1. กรองเฉพาะออเดอร์ที่ชำระเงินแล้ว และเป็นของ "วันนี้" ตามเวลาไทย
+            const todaysPaidOrders = orders.filter(o => 
+                o.status === 'paid' && 
+                o.createdAt && // ต้องมีข้อมูล createdAt
+                isInTodayThaiTime(o.createdAt)
+            );
+
             let totalCash = 0;
             let totalTransfer = 0;
 
-            // คำนวณแยกประเภท
-            orders.forEach(o => {
+            // 2. คำนวณแยกประเภทจากออเดอร์วันนี้
+            todaysPaidOrders.forEach(o => {
                 if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
                 if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
             });
@@ -293,7 +328,8 @@
             const total = totalCash + totalTransfer;
 
             const itemsMap = {};
-            orders.forEach(o => {
+            // 3. รวมรายการอาหารจากออเดอร์วันนี้
+            todaysPaidOrders.forEach(o => {
                 o.items.forEach(item => {
                     if (!itemsMap[item.name]) {
                         itemsMap[item.name] = { qty: 0, price: item.price };
@@ -307,11 +343,17 @@
                 listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${data.qty})</span><span class="font-semibold">฿${data.price * data.qty}</span></div>`;
             }
 
-            // อัพเดท HTML
+            // 4. แสดงผลวันที่ปัจจุบันบน Modal
+            const now = new Date();
+            const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+            document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
+
+            // 5. อัพเดท HTML ยอดเงิน
             document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
             document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
             document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
-            document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ไม่มีข้อมูล</p>';
+            document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ยังไม่มียอดขายวันนี้</p>';
+            
             document.getElementById('summaryModal').classList.remove('hidden');
         }
 

@@ -54,19 +54,17 @@
 </head>
 <body class="bg-orange-50 pb-32">
 
-    <!-- Navbar (เพิ่มปุ่ม Cart ด้านขวา) -->
+    <!-- Navbar -->
     <nav class="bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg sticky top-0 z-40 p-4">
         <div class="max-w-4xl mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold text-white drop-shadow-sm">🥩 Steak Khunnor</h1>
             
             <div class="flex items-center gap-3">
-                <!-- ปุ่มตะกร้า (Cart Icon) -->
+                <!-- ปุ่มตะกร้า (สำหรับดูรายการก่อนส่ง) -->
                 <button onclick="openCart()" class="relative bg-white/20 hover:bg-white/30 p-2 rounded-full transition text-white">
-                    <!-- SVG Icon ตะกร้า -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <!-- ตัวเลขจำนวนสินค้า (Badge) -->
                     <span id="cartCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-600 shadow-md hidden">0</span>
                 </button>
 
@@ -83,31 +81,52 @@
         <div id="menuList" class="space-y-10"></div>
     </div>
 
-    <!-- Cart Footer (แถบด้านล่าง) -->
+    <!-- Cart Footer (แถบด้านล่าง - คลิกเพื่อดูรายการ) -->
     <div id="cartFooter" onclick="openCart()" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-orange-300 shadow-2xl p-4 transform translate-y-full transition-transform duration-300 z-50 cursor-pointer hover:bg-orange-50">
         <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <div>
-                <p class="text-orange-500 text-sm font-medium">รวมทั้งหมด</p>
-                <p class="text-3xl font-bold text-orange-600" id="totalPrice">฿0</p>
+            <div class="flex items-center gap-3">
+                <div class="bg-orange-100 text-orange-600 p-2 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-orange-500 text-sm font-medium">รวมทั้งหมด</p>
+                    <p class="text-3xl font-bold text-orange-600" id="totalPrice">฿0</p>
+                </div>
             </div>
-            <button onclick="event.stopPropagation(); confirmOrder()" class="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-10 py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 shadow-lg active:scale-95 transition border border-orange-700">
-                ยืนยันออเดอร์
-            </button>
+            <div class="text-right">
+                <p class="text-xs text-gray-400 mb-1">แตะเพื่อดูรายการ</p>
+                <button onclick="event.stopPropagation(); openCart()" class="bg-orange-500 text-white px-6 py-2 rounded-xl font-bold shadow hover:bg-orange-600 transition">
+                    ดูรายการ
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Cart Modal (Popup จัดการ Order) -->
+    <!-- Cart Modal (Popup สำหรับตรวจสอบรายการก่อนกดส่งครัว) -->
     <div id="cartModal" class="fixed inset-0 z-[60] hidden">
         <div class="modal-overlay absolute inset-0 bg-black bg-opacity-50" onclick="closeCart()"></div>
-        <div class="modal-content absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[70vh] flex flex-col">
-            <div class="p-4 border-b border-orange-100 flex justify-between items-center sticky top-0 bg-white rounded-t-3xl">
-                <h2 class="text-xl font-bold text-orange-600">🛒 รายการที่สั่ง</h2>
+        <div class="modal-content absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="p-4 border-b border-orange-100 flex justify-between items-center sticky top-0 bg-white rounded-t-3xl z-10">
+                <h2 class="text-xl font-bold text-orange-600">🛒 ตรวจสอบรายการอาหาร</h2>
                 <button onclick="closeCart()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
             </div>
-            <div id="cartItemsList" class="p-4 overflow-y-auto flex-grow"></div>
-            <div class="p-4 border-t border-orange-100 bg-orange-50">
-                <button onclick="confirmOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg hover:from-green-600 transition">
-                    ยืนยันและส่งครัว
+            
+            <!-- รายการอาหารที่เลือก -->
+            <div id="cartItemsList" class="p-4 overflow-y-auto flex-grow bg-gray-50"></div>
+            
+            <!-- ส่วนยอดรวมและปุ่มยืนยัน -->
+            <div class="p-4 border-t border-orange-100 bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-gray-600 font-medium">ยอดรวมสุทธิ</span>
+                    <span class="text-2xl font-bold text-orange-600" id="modalTotalPrice">฿0</span>
+                </div>
+                <button onclick="confirmOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg hover:from-green-600 transition flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    ยืนยันและส่งเข้าครัว
                 </button>
             </div>
         </div>
@@ -119,14 +138,13 @@
         const tableId = pathParts[2] || 'ไม่ระบุ'; 
         document.getElementById('tableNumDisplay').innerText = tableId;
 
-        // --- เปลี่ยนส่วนนี้ ---
-        let menuData = []; // สร้างตัวแปรว่างไว้ก่อน
+        let menuData = []; 
         
         async function loadMenuData() {
             const res = await fetch('/api/menu');
             const rawItems = await res.json();
 
-            // จัดกลุ่มข้อมูลเพื่อแสดงผล (Map flat array to grouped object)
+            // จัดกลุ่มข้อมูลเพื่อแสดงผล
             const categories = {};
             rawItems.forEach(item => {
                 if(!categories[item.category]) {
@@ -135,16 +153,14 @@
                 categories[item.category].push(item);
             });
 
-            // แปลง Object เป็น Array ที่ renderMenu ใช้
             menuData = Object.keys(categories).map(cat => ({
                 category: cat,
                 items: categories[cat]
             }));
 
-            renderMenu(); // วาดเมนูหลังโหลดเสร็จ
+            renderMenu(); 
         }
         
-        // เรียกใช้ตอนเริ่มต้น
         loadMenuData();
 
         let cart = [];
@@ -163,22 +179,22 @@
                 grid.className = 'grid grid-cols-2 md:grid-cols-3 gap-5';
                 
                 section.items.forEach(item => {
-                    // --- เพิ่ม Logic ตรงนี้ ---
                     const isUnavailable = item.status === 'unavailable';
                     const disabledClass = isUnavailable ? 'opacity-50 bg-gray-100' : 'bg-white';
+                    
+                    // ปุ่มเพิ่มรายการ
                     const buttonHtml = isUnavailable 
                         ? '<span class="bg-gray-400 text-white text-sm px-4 py-1.5 rounded-lg shadow cursor-not-allowed">หมด</span>' 
-                        : `<button onclick="addToCart(${item.id})" class="bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow border border-orange-600 active:scale-90 transition font-medium">เพิ่ม</button>`;
+                        : `<button onclick="addToCart('${item.id}')" class="bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow border border-orange-600 active:scale-90 transition font-medium">เพิ่ม</button>`;
 
+                    // ป้ายหมด
                     const overlayHtml = isUnavailable 
                         ? '<div class="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg">หมดชั่วคราว</div>' 
                         : '';
 
                     grid.innerHTML += `
                         <div class="menu-card ${disabledClass} rounded-xl shadow overflow-hidden flex flex-col relative">
-                            <!-- เพิ่ม Overlay -->
                             ${overlayHtml}
-                            
                             <div class="relative border-b-2 border-orange-100">
                                 <img src="${item.img}" class="w-full h-36 object-cover ${isUnavailable ? 'grayscale' : ''}" alt="${item.name}">
                             </div>
@@ -186,11 +202,7 @@
                                 <h3 class="font-semibold text-gray-800 text-sm md:text-base flex-grow leading-tight">${item.name}</h3>
                                 <div class="mt-3 flex justify-between items-center">
                                     <span class="text-orange-600 font-bold text-lg">฿${item.price}</span>
-                                    <!-- แก้ไขตรงนี้: เพิ่ม single quote ครอบ ${item.id} -->
-                                    ${isUnavailable 
-                                        ? '<span class="bg-gray-400 text-white text-sm px-4 py-1.5 rounded-lg shadow cursor-not-allowed">หมด</span>' 
-                                        : `<button onclick="addToCart('${item.id}')" class="bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow border border-orange-600 active:scale-90 transition font-medium">เพิ่ม</button>`
-                                    }
+                                    ${buttonHtml}
                                 </div>
                             </div>
                         </div>
@@ -221,7 +233,7 @@
                 cart.push({ ...item, qty: 1 });
             }
             updateUI();
-            renderCartList(); 
+            renderCartList(); // อัปเดทรายการใน Modal ตลอดเวลา
             
             // Animation ให้ไอคอนตะกร้าเด้ง
             const cartCountEl = document.getElementById('cartCount');
@@ -252,7 +264,9 @@
             const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             const count = cart.reduce((sum, item) => sum + item.qty, 0);
             
-            document.getElementById('totalPrice').innerText = `฿${total}`;
+            const totalFormatted = `฿${total.toLocaleString()}`;
+            document.getElementById('totalPrice').innerText = totalFormatted;
+            document.getElementById('modalTotalPrice').innerText = totalFormatted; // อัปเดท Modal ด้วย
             
             // อัพเดทไอคอน Navbar
             const cartCountEl = document.getElementById('cartCount');
@@ -283,6 +297,7 @@
             document.getElementById('cartModal').classList.add('hidden');
         }
 
+        // แสดงรายการในตะกร้า (สำหรับดูก่อนยืนยัน)
         function renderCartList() {
             const list = document.getElementById('cartItemsList');
             if (cart.length === 0) {
@@ -291,17 +306,16 @@
             }
 
             list.innerHTML = cart.map(item => `
-                <div class="flex justify-between items-center bg-orange-50 p-3 rounded-xl mb-3 border border-orange-100">
+                <div class="flex justify-between items-center bg-white p-3 rounded-xl mb-3 border border-orange-100 shadow-sm">
                     <div class="flex-1 pr-2">
                         <h4 class="font-semibold text-gray-800 text-sm md:text-base">${item.name}</h4>
-                        <p class="text-orange-500 font-bold text-sm">฿${item.price} x ${item.qty} = ฿${item.price * item.qty}</p>
+                        <p class="text-orange-500 font-bold text-sm">฿${item.price} x ${item.qty} = ฿${(item.price * item.qty).toLocaleString()}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <!-- แก้ไข: เพิ่ม single quote ครอบ ID -->
-                        <button onclick="decreaseQty('${item.id}')" class="w-8 h-8 bg-orange-200 text-orange-700 rounded-full font-bold hover:bg-orange-300 text-xl flex items-center justify-center">-</button>
+                        <button onclick="decreaseQty('${item.id}')" class="w-8 h-8 bg-orange-100 text-orange-700 rounded-full font-bold hover:bg-orange-200 text-lg flex items-center justify-center">-</button>
                         <span class="w-8 text-center font-bold">${item.qty}</span>
-                        <button onclick="addToCart('${item.id}')" class="w-8 h-8 bg-orange-500 text-white rounded-full font-bold hover:bg-orange-600 text-xl flex items-center justify-center">+</button>
-                        <button onclick="removeItem('${item.id}')" class="w-8 h-8 bg-red-100 text-red-500 rounded-full hover:bg-red-200 flex items-center justify-center ml-1">
+                        <button onclick="addToCart('${item.id}')" class="w-8 h-8 bg-orange-500 text-white rounded-full font-bold hover:bg-orange-600 text-lg flex items-center justify-center">+</button>
+                        <button onclick="removeItem('${item.id}')" class="w-8 h-8 bg-red-50 text-red-500 rounded-full hover:bg-red-100 flex items-center justify-center ml-1" title="ลบรายการ">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
@@ -328,7 +342,10 @@
                 });
 
                 if (response.ok) {
+                    // แจ้งเตือนด้วย SweetAlert หรือ UI สวยๆ แทน alert ปกติถ้าต้องการ
                     alert(`✅ ส่งออเดอร์จากโต๊ะ ${tableId} เรียบร้อยแล้วค่ะ!`);
+                    
+                    // ล้างตะกร้า
                     cart = [];
                     updateUI();
                 } else {
@@ -339,8 +356,6 @@
                 alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
             }
         }
-
-        renderMenu();
     </script>
 </body>
 </html>
