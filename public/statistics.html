@@ -24,7 +24,7 @@
         <!-- Filter Section -->
         <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-4 items-center justify-between">
             <div class="flex gap-2">
-                <button onclick="setFilter('day')" id="btn-day" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">วันนี้</button>
+                <button onclick="setFilter('day')" id="btn-day" class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 text-white transition">วันนี้</button>
                 <button onclick="setFilter('week')" id="btn-week" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">สัปดาห์นี้</button>
                 <button onclick="setFilter('month')" id="btn-month" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">เดือนนี้</button>
                 <button onclick="setFilter('year')" id="btn-year" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">ปีนี้</button>
@@ -35,18 +35,31 @@
             </div>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+        <!-- Summary Cards (เพิ่มตัวเงินสดและโอนเงิน) -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <!-- Total -->
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500 md:col-span-1">
                 <p class="text-gray-500 text-sm">รายได้รวม</p>
                 <p class="text-3xl font-bold text-green-600" id="totalRevenue">฿0</p>
             </div>
+            <!-- Cash -->
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-yellow-500">
+                <p class="text-gray-500 text-sm">💵 เงินสด</p>
+                <p class="text-3xl font-bold text-yellow-600" id="totalCash">฿0</p>
+            </div>
+            <!-- Transfer -->
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-purple-500">
+                <p class="text-gray-500 text-sm">🏦 โอนเงิน</p>
+                <p class="text-3xl font-bold text-purple-600" id="totalTransfer">฿0</p>
+            </div>
+            <!-- Orders -->
             <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
                 <p class="text-gray-500 text-sm">จำนวนออเดอร์</p>
                 <p class="text-3xl font-bold text-blue-600" id="totalOrders">0</p>
             </div>
+            <!-- Avg -->
             <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-orange-500">
-                <p class="text-gray-500 text-sm">ราคาเฉลี่ย/ออเดอร์</p>
+                <p class="text-gray-500 text-sm">เฉลี่ย/ออเดอร์</p>
                 <p class="text-3xl font-bold text-orange-600" id="avgOrder">฿0</p>
             </div>
         </div>
@@ -68,10 +81,10 @@
             </div>
         </div>
         
-        <!-- Warning -->
-        <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl shadow text-sm text-yellow-800">
-            <p class="font-bold">⚠️ ข้อจำกัดของระบบ Demo:</p>
-            <p>ข้อมูลสถิตินี้อ้างอิงจากหน่วยความจำ (Memory) ของ Server ณ ปัจจุบัน หาก Restart Server ข้อมูลจะหายทั้งหมด เหมาะสำหรับดูสถิติระหว่างวันเท่านั้น</p>
+        <!-- Warning (อัพเดทแล้ว) -->
+        <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-xl shadow text-sm text-blue-800">
+            <p class="font-bold">ℹ️ ข้อมูลถาวร:</p>
+            <p>ข้อมูลถูกจัดเก็บใน MongoDB แล้ว ไม่หายแม้จะ Restart Server ครับ</p>
         </div>
     </div>
 
@@ -84,12 +97,8 @@
         async function loadData() {
             const res = await fetch('/api/orders');
             allOrders = await res.json();
-            
-            // กรองเอาเฉพาะออเดอร์ที่ชำระเงินแล้ว (status: 'paid') เพื่อความแม่นยำของสถิติ
-            // หมายเหตุ: ถ้าต้องการนับทุกสถานะให้เอา filter นี้ออก
-            // allOrders = allOrders.filter(o => o.status === 'paid'); 
-            // *ในตัวอย่างนี้จะนับทุกออเดอร์ที่เข้ามา เพราะระบบยังไม่มีตัวแยกออเดอร์ที่ยกเลิก*
-            
+            // เรียงลำดับข้อมูลจากเก่าไปใหม่เพื่อกราฟ
+            allOrders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             applyFilter();
         }
 
@@ -98,8 +107,13 @@
             currentFilter = type;
             
             // UI Update
-            document.querySelectorAll('[id^="btn-"]').forEach(btn => btn.classList.remove('bg-blue-500', 'text-white'));
-            document.getElementById(`btn-${type}`).classList.add('bg-blue-500', 'text-white');
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-gray-200');
+            });
+            const activeBtn = document.getElementById(`btn-${type}`);
+            activeBtn.classList.remove('bg-gray-200');
+            activeBtn.classList.add('bg-blue-500', 'text-white');
             
             applyFilter();
         }
@@ -117,8 +131,7 @@
                 });
             } else if (currentFilter === 'week') {
                 label = "สัปดาห์นี้";
-                // อย่างง่าย: ย้อนหลัง 7 วัน
-                const weekAgo = new Date(now.setDate(now.getDate() - 7));
+                const weekAgo = new Date(new Date().setDate(now.getDate() - 7));
                 filtered = allOrders.filter(o => new Date(o.createdAt) >= weekAgo);
             } else if (currentFilter === 'month') {
                 label = "เดือนนี้";
@@ -142,14 +155,24 @@
             renderChart(filtered);
         }
 
-        // 3. คำนวณและแสดงผล
+        // 3. คำนวณและแสดงผล (เพิ่มการแยกประเภท)
         function renderStats(data) {
-            // Summary
-            const totalRevenue = data.reduce((sum, o) => sum + o.totalPrice, 0);
+            // Summary - แยกประเภท
+            let totalCash = 0;
+            let totalTransfer = 0;
+
+            data.forEach(o => {
+                if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
+                if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+            });
+            
+            const totalRevenue = totalCash + totalTransfer;
             const totalOrders = data.length;
             const avg = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
             document.getElementById('totalRevenue').innerText = `฿${totalRevenue.toLocaleString()}`;
+            document.getElementById('totalCash').innerText = `฿${totalCash.toLocaleString()}`;
+            document.getElementById('totalTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
             document.getElementById('totalOrders').innerText = totalOrders;
             document.getElementById('avgOrder').innerText = `฿${avg.toFixed(0)}`;
 
@@ -189,11 +212,10 @@
 
         // 4. กราฟ
         function renderChart(data) {
-            // Group by Date
             const dailySales = {};
             data.forEach(o => {
                 if(!o.createdAt) return;
-                const dateStr = new Date(o.createdAt).toLocaleDateString('th-TH'); // e.g., 27/10/2023
+                const dateStr = new Date(o.createdAt).toLocaleDateString('th-TH'); 
                 if (!dailySales[dateStr]) dailySales[dateStr] = 0;
                 dailySales[dateStr] += o.totalPrice;
             });

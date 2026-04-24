@@ -18,13 +18,12 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
 
-        <!-- Navbar (ในไฟล์ admin.html) -->
+    <!-- Navbar -->
     <nav class="bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-40 flex justify-between items-center px-6">
         <h1 class="text-xl font-bold">👨‍🍳 หน้าครัว (Admin)</h1>
         <div class="flex items-center gap-3">
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
             
-            <!-- เพิ่มปุ่มสถิติตรงนี้ -->
             <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 📈 สถิติการขาย
             </a>
@@ -54,10 +53,22 @@
                 <button onclick="closeSummaryModal()" class="text-white text-2xl hover:opacity-70">&times;</button>
             </div>
             <div class="p-5 overflow-y-auto flex-grow">
-                <div class="mb-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                    <p class="text-gray-600">ยอดขายรวมทั้งสิ้น</p>
-                    <p class="text-4xl font-bold text-green-600" id="summaryTotal">฿0</p>
+                <!-- Cards แยกยอด -->
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="bg-green-50 p-3 rounded-xl text-center border border-green-200">
+                        <p class="text-xs text-gray-500">รวมทั้งหมด</p>
+                        <p class="text-xl font-bold text-green-600" id="sumTotal">฿0</p>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-xl text-center border border-yellow-200">
+                        <p class="text-xs text-gray-500">💵 เงินสด</p>
+                        <p class="text-xl font-bold text-yellow-600" id="sumCash">฿0</p>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-xl text-center border border-purple-200">
+                        <p class="text-xs text-gray-500">🏦 โอนเงิน</p>
+                        <p class="text-xl font-bold text-purple-600" id="sumTransfer">฿0</p>
+                    </div>
                 </div>
+                
                 <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย:</h3>
                 <div id="summaryList" class="space-y-2 text-sm"></div>
             </div>
@@ -95,34 +106,37 @@
         async function updateStatus(id, status) {
             const order = orders.find(o => o.id === id);
             if(order) {
-                // 1. อัพเดทหน้าจอก่อน (Optimistic UI) เพื่อให้ลื่นไหล
                 order.status = status;
                 render();
-
-                // 2. ส่งข้อมูลไปบันทึกที่ Server
                 try {
                     await fetch(`/api/orders/${id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: status }) // ส่งเฉพาะ status
+                        body: JSON.stringify({ status: status })
                     });
                 } catch (err) {
                     console.error('Failed to update status:', err);
-                    alert('เกิดข้อผิดพลาดในการอัพเดทสถานะ กรุณาลองใหม่');
                 }
             }
         }
 
-        // --- Function สำหรับชำระบิลโต๊ะ ---
-        async function confirmPayment(tableNo) {
-            if(!confirm(`ยืนยันการชำระบิล โต๊ะ ${tableNo} ใช่หรือไม่?`)) return;
+        // --- Function สำหรับชำระบิลโต๊ะ (แก้ไขใหม่) ---
+        async function confirmPayment(tableNo, method) {
+            const methodText = method === 'cash' ? 'เงินสด' : 'โอนเงิน';
+            if(!confirm(`ยืนยันชำระบิล โต๊ะ ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
 
             try {
-                const res = await fetch(`/api/orders/table/${tableNo}/pay`, { method: 'PUT' });
+                const res = await fetch(`/api/orders/table/${tableNo}/pay`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentMethod: method })
+                });
                 if (res.ok) {
-                    // อัพเดท local state ให้เป็น paid ทั้งโต๊ะ เพื่อให้หายจากหน้าจอทันที
                     orders.forEach(o => {
-                        if(o.tableNo == tableNo) o.status = 'paid';
+                        if(o.tableNo == tableNo) {
+                            o.status = 'paid';
+                            o.paymentMethod = method;
+                        }
                     });
                     render();
                 } else {
@@ -174,11 +188,7 @@
             const list = document.getElementById('orderList');
             const empty = document.getElementById('emptyState');
             
-            // Filter เฉพาะออเดอร์ที่ยังไม่ paid (สำหรับการแสดงผลบน Kitchen Screen)
-            // แต่ตัวแปร orders ตัวเดิมยังเก็บทั้งหมดไว้สำหรับสรุปยอด
             const activeOrders = orders.filter(o => o.status !== 'paid');
-
-            // นับเฉพาะที่รอทำ
             const pendingCount = orders.filter(o => o.status === 'new' || o.status === 'cooking').length;
             document.getElementById('countBadge').innerText = `${pendingCount} รอทำ`;
 
@@ -190,7 +200,6 @@
                 empty.classList.add('hidden');
             }
 
-            // Group แค่ active orders
             const grouped = {};
             activeOrders.forEach(order => {
                 if (!grouped[order.tableNo]) grouped[order.tableNo] = [];
@@ -204,9 +213,6 @@
                 const hasNew = tableOrders.some(o => o.status === 'new');
                 const borderClass = hasNew ? 'border-red-500 border-2' : 'border-gray-200';
                 const headerBg = hasNew ? 'bg-red-50' : 'bg-white';
-
-                // Logic สำหรับปุ่มชำระบิล
-                // ถ้าทุก order ในโต๊ะ status เป็น 'done' -> แสดงปุ่มชำระบิล
                 const allDone = tableOrders.every(o => o.status === 'done');
 
                 html += `
@@ -223,11 +229,9 @@
 
                                 if (order.status === 'new') {
                                     statusHtml = '<span class="text-red-600 font-bold text-xs animate-pulse">🔔 รอทำ</span>';
-                                    // แก้ไข: เพิ่ม single quote
                                     btnHtml = `<button onclick="updateStatus('${order.id}', 'cooking')" class="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 rounded font-semibold">เริ่มทำ</button>`;
                                 } else if (order.status === 'cooking') {
                                     statusHtml = '<span class="text-yellow-600 font-bold text-xs">🔥 กำลังทำ</span>';
-                                    // แก้ไข: เพิ่ม single quote
                                     btnHtml = `<button onclick="updateStatus('${order.id}', 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`;
                                 } else {
                                     statusHtml = '<span class="text-green-600 font-bold text-xs">✅ เสร็จ</span>';
@@ -244,7 +248,6 @@
                                         ${order.items.map(i => `
                                             <div class="flex justify-between items-center group">
                                                 <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
-                                                <!-- แก้ไข: เพิ่ม single quote ทั้ง orderId และ itemId -->
                                                 <button onclick="removeItemFromOrder('${order.id}', '${i.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
                                             </div>
                                         `).join('')}
@@ -258,26 +261,38 @@
                             }).join('')}
                         </div>
                         
+                        <!-- Footer: ปุ่มชำระเงิน 2 ปุ่ม -->
                         ${allDone ? `
-                            <div class="p-3 bg-blue-50 border-t border-blue-100">
-                                <button onclick="confirmPayment('${tableNo}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold shadow-md transition">
-                                    💳 ชำระบิลโต๊ะนี้
+                            <div class="p-3 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2">
+                                <button onclick="confirmPayment('${tableNo}', 'cash')" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
+                                    💵 เงินสด
+                                </button>
+                                <button onclick="confirmPayment('${tableNo}', 'transfer')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
+                                    🏦 โอนเงิน
                                 </button>
                             </div>
                         ` : ''}
                     </div>
                 `;
-                });
+            });
 
             list.innerHTML = html;
         }
 
-        // --- Summary Functions ---
+        // --- Summary Functions (แก้ไขใหม่) ---
         function openSummaryModal() {
-            // ใช้ orders ตัวเต็ม (รวม paid ด้วย)
-            const total = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-            const itemsMap = {};
+            let totalCash = 0;
+            let totalTransfer = 0;
 
+            // คำนวณแยกประเภท
+            orders.forEach(o => {
+                if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
+                if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+            });
+            
+            const total = totalCash + totalTransfer;
+
+            const itemsMap = {};
             orders.forEach(o => {
                 o.items.forEach(item => {
                     if (!itemsMap[item.name]) {
@@ -292,7 +307,10 @@
                 listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${data.qty})</span><span class="font-semibold">฿${data.price * data.qty}</span></div>`;
             }
 
-            document.getElementById('summaryTotal').innerText = `฿${total.toLocaleString()}`;
+            // อัพเดท HTML
+            document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
+            document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
+            document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
             document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ไม่มีข้อมูล</p>';
             document.getElementById('summaryModal').classList.remove('hidden');
         }
@@ -300,7 +318,6 @@
         function closeSummaryModal() {
             document.getElementById('summaryModal').classList.add('hidden');
         }
-
 
         loadInitialOrders();
     </script>

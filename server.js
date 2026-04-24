@@ -57,6 +57,7 @@ const orderSchema = new mongoose.Schema({
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
+  paymentMethod: { type: String, enum: ['cash', 'transfer', null], default: null }, // เพิ่มตรงนี้
   time: String,
   createdAt: { type: Date, default: Date.now }
 });
@@ -188,7 +189,17 @@ app.put('/api/orders/:id', async (req, res) => {
 // PUT Table Pay
 app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
     const { tableNo } = req.params;
-    await Order.updateMany({ tableNo: tableNo, status: { $ne: 'paid' } }, { status: 'paid' });
+    const { paymentMethod } = req.body; // รับประเภทการจ่ายจากหน้าบ้าน
+
+    // ตรวจสอบว่าส่ง method มาไหม
+    if (!['cash', 'transfer'].includes(paymentMethod)) {
+        return res.status(400).json({ error: "Invalid payment method" });
+    }
+
+    await Order.updateMany(
+        { tableNo: tableNo, status: { $ne: 'paid' }, paymentMethod: null }, 
+        { status: 'paid', paymentMethod: paymentMethod } // อัพเดท status และ method
+    );
     res.json({ success: true });
 });
 
