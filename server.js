@@ -3,8 +3,32 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const multer = require('multer');
-const fs = require('fs');
-require('dotenv').config(); // โหลดค่าจาก .env
+require('dotenv').config();
+
+// --- Cloudinary Setup ---
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+// ตั้งค่า Cloudinary (ดึงค่าจาก Environment Variables)
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// ตั้งค่า Storage ให้ Multer ใช้ Cloudinary
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'steak-khunnor', // ชื่อโฟลเดอร์บน Cloudinary
+        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+        public_id: (req, file) => {
+            // ตั้งชื่อไฟล์แบบ Unique
+            return Date.now() + '-' + Math.round(Math.random() * 1E9);
+        },
+    },
+});
+const upload = multer({ storage: storage });
 
 // --- Database Setup ---
 const mongoose = require('mongoose');
@@ -13,25 +37,20 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.error('MongoDB connection error:', err));
 
 // --- Schema Definitions ---
-
-// Schema สำหรับเมนู
 const menuSchema = new mongoose.Schema({
   name: String,
   price: Number,
-  img: String,
+  img: String, // เก็บ URL จาก Cloudinary
   category: String,
-  status: { type: String, default: 'available' } // available, unavailable
+  status: { type: String, default: 'available' }
 });
-
-// Virtual: ทำให้ frontend เรียก .id ได้ (แทนที่จะเป็น ._id)
 menuSchema.set('toJSON', { virtuals: true });
 const Menu = mongoose.model('Menu', menuSchema);
 
-// Schema สำหรับออเดอร์
 const orderSchema = new mongoose.Schema({
   tableNo: String,
   items: [{
-    id: String, // <--- แก้จาก Number เป็น String ตรงนี้ครับ
+    id: String,
     name: String,
     price: Number,
     qty: Number
@@ -49,24 +68,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, 'public/uploads');
-        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage: storage });
-
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ROUTES ---
-app.get('/', (req, res) => res.redirect('/menu'));
+app.get('/', (req, res) => res.redirect('/table/1')); // Default ไปโต๊ะ 1
 app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
 app.get('/admin03030853khunnor', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 app.get('/table/:tableId', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
@@ -75,7 +81,7 @@ app.get('/admin03030853khunnor/statistics', (req, res) => res.sendFile(path.join
 
 // --- API: MENU ---
 
-// GET Menu (ตรวจสอบถ้า DB ว่างให้ใส่ข้อมูล Default)
+// GET Menu
 app.get('/api/menu', async (req, res) => {
     let menus = await Menu.find();
     if (menus.length === 0) {
@@ -97,7 +103,8 @@ app.get('/api/menu', async (req, res) => {
 // POST Menu
 app.post('/api/menu', upload.single('img'), async (req, res) => {
     const { name, price, category } = req.body;
-    const imgPath = req.file ? `/uploads/${req.file.filename}` : '';
+    // เปลี่ยนตรงนี้: req.file.path คือ URL รูปจาก Cloudinary
+    const imgPath = req.file ? req.file.path : ''; 
     const newItem = new Menu({ name, price: parseFloat(price), img: imgPath, category, status: 'available' });
     await newItem.save();
     res.status(201).json(newItem);
@@ -114,7 +121,9 @@ app.put('/api/menu/:id', upload.single('img'), async (req, res) => {
     item.price = price || item.price;
     item.category = category || item.category;
     item.status = status || item.status;
-    if (req.file) item.img = `/uploads/${req.file.filename}`;
+    
+    // เปลี่ยนตรงนี้: ถ้ามีรูปใหม่ ให้ใช้ URL ใหม่จาก Cloudinary
+    if (req.file) item.img = req.file.path;
     
     await item.save();
     res.json(item);
@@ -156,7 +165,7 @@ app.delete('/api/orders', async (req, res) => {
 
 // PUT Order (Update Status / Items)
 app.put('/api/orders/:id', async (req, res) => {
-    const { id } = req.params; // id นี้คือ MongoDB _id (string)
+    const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ error: "Not found" });
 
