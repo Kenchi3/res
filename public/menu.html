@@ -44,12 +44,17 @@
         .modal-overlay { transition: opacity 0.3s ease; }
         .modal-content { transition: transform 0.3s ease; }
         
-        /* Animation สำหรับไอคอนตะกร้า */
+        /* Animation */
         @keyframes bounce {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.2); }
         }
         .cart-bounce { animation: bounce 0.3s ease; }
+
+        /* Search Input Styling */
+        .search-input:focus {
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
+        }
     </style>
 </head>
 <body class="bg-orange-50 pb-32">
@@ -57,10 +62,15 @@
     <!-- Navbar -->
     <nav class="bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg sticky top-0 z-40 p-4">
         <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-white drop-shadow-sm">🥩 Steak Khunnor</h1>
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <!-- เปลี่ยน src เป็น URL โลโก้ของร้านได้เลยครับ -->
+                <img src="https://cdn-icons-png.flaticon.com/512/1031/1031918.png" alt="Logo" class="h-10 w-10 rounded-full shadow-md bg-white p-1 object-contain">
+                <h1 class="text-xl md:text-2xl font-bold text-white drop-shadow-sm">Steak Khunnor</h1>
+            </div>
             
             <div class="flex items-center gap-3">
-                <!-- ปุ่มตะกร้า (สำหรับดูรายการก่อนส่ง) -->
+                <!-- ปุ่มตะกร้า -->
                 <button onclick="openCart()" class="relative bg-white/20 hover:bg-white/30 p-2 rounded-full transition text-white">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -76,12 +86,36 @@
         </div>
     </nav>
 
+    <!-- Search Bar (Sticky ใต้ Navbar) -->
+    <div class="sticky top-[72px] z-30 bg-orange-50/95 backdrop-blur-sm shadow-sm py-3 px-4 border-b border-orange-100">
+        <div class="max-w-4xl mx-auto">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="ค้นหาเมนู... (เช่น สเต็ก, ข้าว, เครื่องดื่ม)" 
+                    class="search-input w-full pl-10 pr-4 py-2.5 rounded-full border-2 border-orange-200 focus:border-orange-400 outline-none text-sm bg-white shadow-sm transition"
+                >
+            </div>
+        </div>
+    </div>
+
     <!-- Menu Container -->
     <div class="max-w-4xl mx-auto p-6">
         <div id="menuList" class="space-y-10"></div>
+        <!-- ถ้าค้นหาไม่เจอจะแสดงตรงนี้ -->
+        <div id="noResult" class="hidden text-center py-20 text-gray-400">
+            <h3 class="text-xl font-semibold">😕 ไม่พบเมนูที่ค้นหา</h3>
+            <p class="text-sm mt-2">ลองค้นหาด้วยคำอื่นดูนะคะ</p>
+        </div>
     </div>
 
-    <!-- Cart Footer (แถบด้านล่าง - คลิกเพื่อดูรายการ) -->
+    <!-- Cart Footer (แถบด้านล่าง) -->
     <div id="cartFooter" onclick="openCart()" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-orange-300 shadow-2xl p-4 transform translate-y-full transition-transform duration-300 z-50 cursor-pointer hover:bg-orange-50">
         <div class="max-w-4xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
@@ -104,7 +138,7 @@
         </div>
     </div>
 
-    <!-- Cart Modal (Popup สำหรับตรวจสอบรายการก่อนกดส่งครัว) -->
+    <!-- Cart Modal -->
     <div id="cartModal" class="fixed inset-0 z-[60] hidden">
         <div class="modal-overlay absolute inset-0 bg-black bg-opacity-50" onclick="closeCart()"></div>
         <div class="modal-content absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
@@ -113,10 +147,8 @@
                 <button onclick="closeCart()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
             </div>
             
-            <!-- รายการอาหารที่เลือก -->
             <div id="cartItemsList" class="p-4 overflow-y-auto flex-grow bg-gray-50"></div>
             
-            <!-- ส่วนยอดรวมและปุ่มยืนยัน -->
             <div class="p-4 border-t border-orange-100 bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <span class="text-gray-600 font-medium">ยอดรวมสุทธิ</span>
@@ -139,12 +171,18 @@
         document.getElementById('tableNumDisplay').innerText = tableId;
 
         let menuData = []; 
-        
+        let cart = [];
+
+        // --- Event Listener สำหรับช่องค้นหา ---
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            renderMenu(e.target.value);
+        });
+
         async function loadMenuData() {
             const res = await fetch('/api/menu');
             const rawItems = await res.json();
 
-            // จัดกลุ่มข้อมูลเพื่อแสดงผล
+            // จัดกลุ่มข้อมูล
             const categories = {};
             rawItems.forEach(item => {
                 if(!categories[item.category]) {
@@ -163,12 +201,26 @@
         
         loadMenuData();
 
-        let cart = [];
-
-        function renderMenu() {
+        function renderMenu(searchQuery = '') {
             const container = document.getElementById('menuList');
+            const noResult = document.getElementById('noResult');
             container.innerHTML = ''; 
+            
+            const query = searchQuery.toLowerCase().trim();
+            let hasAnyItem = false;
+
             menuData.forEach(section => {
+                // กรองรายการอาหารในแต่ละหมวด
+                const filteredItems = section.items.filter(item => {
+                    if (!query) return true; // ถ้าไม่มีคำค้นหา แสดงทั้งหมด
+                    return item.name.toLowerCase().includes(query);
+                });
+
+                // ถ้าในหมวดนี้ไม่มีรายการที่ค้นหา ข้ามหมวดนี้ไป
+                if (filteredItems.length === 0) return;
+
+                hasAnyItem = true; // มีข้อมูลแสดงอยู่
+
                 const sectionDiv = document.createElement('div');
                 const header = document.createElement('h2');
                 header.className = 'section-title text-2xl font-bold text-orange-800';
@@ -178,16 +230,14 @@
                 const grid = document.createElement('div');
                 grid.className = 'grid grid-cols-2 md:grid-cols-3 gap-5';
                 
-                section.items.forEach(item => {
+                filteredItems.forEach(item => {
                     const isUnavailable = item.status === 'unavailable';
                     const disabledClass = isUnavailable ? 'opacity-50 bg-gray-100' : 'bg-white';
                     
-                    // ปุ่มเพิ่มรายการ
                     const buttonHtml = isUnavailable 
                         ? '<span class="bg-gray-400 text-white text-sm px-4 py-1.5 rounded-lg shadow cursor-not-allowed">หมด</span>' 
                         : `<button onclick="addToCart('${item.id}')" class="bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow border border-orange-600 active:scale-90 transition font-medium">เพิ่ม</button>`;
 
-                    // ป้ายหมด
                     const overlayHtml = isUnavailable 
                         ? '<div class="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg">หมดชั่วคราว</div>' 
                         : '';
@@ -211,6 +261,13 @@
                 sectionDiv.appendChild(grid);
                 container.appendChild(sectionDiv);
             });
+
+            // แสดงข้อความถ้าค้นหาไม่เจอ
+            if (!hasAnyItem) {
+                noResult.classList.remove('hidden');
+            } else {
+                noResult.classList.add('hidden');
+            }
         }
 
         function findItemById(id) {
@@ -233,9 +290,8 @@
                 cart.push({ ...item, qty: 1 });
             }
             updateUI();
-            renderCartList(); // อัปเดทรายการใน Modal ตลอดเวลา
+            renderCartList();
             
-            // Animation ให้ไอคอนตะกร้าเด้ง
             const cartCountEl = document.getElementById('cartCount');
             cartCountEl.classList.add('cart-bounce');
             setTimeout(() => cartCountEl.classList.remove('cart-bounce'), 300);
@@ -266,9 +322,8 @@
             
             const totalFormatted = `฿${total.toLocaleString()}`;
             document.getElementById('totalPrice').innerText = totalFormatted;
-            document.getElementById('modalTotalPrice').innerText = totalFormatted; // อัปเดท Modal ด้วย
+            document.getElementById('modalTotalPrice').innerText = totalFormatted;
             
-            // อัพเดทไอคอน Navbar
             const cartCountEl = document.getElementById('cartCount');
             cartCountEl.innerText = count;
             if (count > 0) {
@@ -277,7 +332,6 @@
                 cartCountEl.classList.add('hidden');
             }
 
-            // อัพเดท Footer
             const footer = document.getElementById('cartFooter');
             if (count > 0) {
                 footer.classList.remove('translate-y-full');
@@ -297,7 +351,6 @@
             document.getElementById('cartModal').classList.add('hidden');
         }
 
-        // แสดงรายการในตะกร้า (สำหรับดูก่อนยืนยัน)
         function renderCartList() {
             const list = document.getElementById('cartItemsList');
             if (cart.length === 0) {
@@ -342,12 +395,12 @@
                 });
 
                 if (response.ok) {
-                    // แจ้งเตือนด้วย SweetAlert หรือ UI สวยๆ แทน alert ปกติถ้าต้องการ
                     alert(`✅ ส่งออเดอร์จากโต๊ะ ${tableId} เรียบร้อยแล้วค่ะ!`);
-                    
-                    // ล้างตะกร้า
                     cart = [];
                     updateUI();
+                    // ล้างช่องค้นหาหลังส่งออเดอร์ เพื่อความสะดวก
+                    document.getElementById('searchInput').value = '';
+                    renderMenu();
                 } else {
                     alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
                 }
