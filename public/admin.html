@@ -342,51 +342,30 @@
             });
         }
 
-        function openSummaryModal() {
-            const todaysPaidOrders = orders.filter(o => 
-                o.status === 'paid' && 
-                o.createdAt && 
-                isInTodayThaiTime(o.createdAt)
-            );
+        async function openSummaryModal() {
+            // 1. เรียก API สรุปยอดจาก Backend โดยตรง (แม่นยำกว่า)
+            try {
+                const res = await fetch('/api/orders/summary/today');
+                const data = await res.json();
 
-            let totalCash = 0;
-            let totalTransfer = 0;
+                // 2. อัพเดท UI
+                document.getElementById('currentDateDisplay').innerText = data.date;
+                document.getElementById('sumTotal').innerText = `฿${data.total.toLocaleString()}`;
+                document.getElementById('sumCash').innerText = `฿${data.cash.toLocaleString()}`;
+                document.getElementById('sumTransfer').innerText = `฿${data.transfer.toLocaleString()}`;
 
-            todaysPaidOrders.forEach(o => {
-                if (o.paymentMethod === 'cash') {
-                    totalCash += o.totalPrice;
-                } else if (o.paymentMethod === 'transfer') {
-                    totalTransfer += o.totalPrice;
+                let listHtml = '';
+                for (const [name, itemData] of Object.entries(data.items)) {
+                    listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${itemData.qty})</span><span class="font-semibold">฿${itemData.price * itemData.qty}</span></div>`;
                 }
-            });
-            
-            const total = totalCash + totalTransfer;
+                document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ยังไม่มียอดขายวันนี้</p>';
+                
+                document.getElementById('summaryModal').classList.remove('hidden');
 
-            const itemsMap = {};
-            todaysPaidOrders.forEach(o => {
-                o.items.forEach(item => {
-                    if (!itemsMap[item.name]) {
-                        itemsMap[item.name] = { qty: 0, price: item.price };
-                    }
-                    itemsMap[item.name].qty += item.qty;
-                });
-            });
-
-            let listHtml = '';
-            for (const [name, data] of Object.entries(itemsMap)) {
-                listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${data.qty})</span><span class="font-semibold">฿${data.price * data.qty}</span></div>`;
+            } catch (err) {
+                alert('ไม่สามารถดึงข้อมูลสรุปได้');
+                console.error(err);
             }
-
-            const now = new Date();
-            const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-            document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
-
-            document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
-            document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
-            document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
-            document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ยังไม่มียอดขายวันนี้</p>';
-            
-            document.getElementById('summaryModal').classList.remove('hidden');
         }
 
         function closeSummaryModal() {

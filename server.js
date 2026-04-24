@@ -57,7 +57,7 @@ const orderSchema = new mongoose.Schema({
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
-  paymentMethod: { type: String, enum: ['cash', 'transfer', null], default: null }, // เพิ่มตรงนี้
+  paymentMethod: { type: String, enum: ['cash', 'transfer', null], default: null },
   time: String,
   createdAt: { type: Date, default: Date.now }
 });
@@ -104,7 +104,6 @@ app.get('/api/menu', async (req, res) => {
 // POST Menu
 app.post('/api/menu', upload.single('img'), async (req, res) => {
     const { name, price, category } = req.body;
-    // เปลี่ยนตรงนี้: req.file.path คือ URL รูปจาก Cloudinary
     const imgPath = req.file ? req.file.path : ''; 
     const newItem = new Menu({ name, price: parseFloat(price), img: imgPath, category, status: 'available' });
     await newItem.save();
@@ -123,7 +122,6 @@ app.put('/api/menu/:id', upload.single('img'), async (req, res) => {
     item.category = category || item.category;
     item.status = status || item.status;
     
-    // เปลี่ยนตรงนี้: ถ้ามีรูปใหม่ ให้ใช้ URL ใหม่จาก Cloudinary
     if (req.file) item.img = req.file.path;
     
     await item.save();
@@ -201,13 +199,70 @@ app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
         { status: 'paid', paymentMethod: paymentMethod }
     );
 
-    // 2. ดึงข้อมูลที่อัพเดทแล้วมาส่งผ่าน Socket (สำคัญมาก)
+    // 2. ดึงข้อมูลที่อัพเดทแล้วมาส่งผ่าน Socket
     const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
     
-    // ส่ง Event ไปบอก Frontend ว่าโต๊ะนี้จ่ายเงินแล้ว ด้วยวิธีอะไร
     io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
 
     res.json({ success: true });
+});
+
+// --- [เพิ่มใหม่] API: SUMMARY (สรุปยอดขายวันนี้จาก Database) ---
+app.get('/api/orders/summary/today', async (req, res) => {
+    try {
+        // 1. หาช่วงเวลาของวันนี้ (Timezone: Asia/Bangkok)
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0); 
+        // Note: ถ้า Server ตั้งเวลาเป็น UTC ต้อง adjust offset ที่นี่ แต่ถ้าใช้ Node.js v14+ จะจัดการให้
+        // เพื่อความปลอดภัย เราจะ filter เบื้องต้นด้วยวันที่ใกล้เคียง
+        
+        // 2. ดึงออเดอร์ที่จ่ายแล้ว
+        const paidOrders = await Order.find({ 
+            status: 'paid',
+            createdAt: { $gte: startOfDay } 
+        });
+
+        // 3. Filter แบบละเอียดอีกครั้งด้วย Timezone ไทย (ป้องกันกรณี Server เป็น UTC)
+        const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+        const thaiStart = new Date(thaiNow);
+        thaiStart.setHours(0, 0, 0, 0);
+
+        const todaysOrders = paidOrders.filter(o => {
+            const orderDate = new Date(o.createdAt);
+            const thaiOrderDate = new Date(orderDate.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+            return thaiOrderDate >= thaiStart;
+        });
+
+        // 4. คำนวณยอด
+        let totalCash = 0;
+        let totalTransfer = 0;
+        const itemsMap = {};
+
+        todaysOrders.forEach(o => {
+            // เช็ค Method อย่างเข้มงวด
+            if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
+            else if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+
+            // นับสินค้า
+            o.items.forEach(item => {
+                if (!itemsMap[item.name]) itemsMap[item.name] = { qty: 0, price: item.price };
+                itemsMap[item.name].qty += item.qty;
+            });
+        });
+
+        res.json({
+            total: totalCash + totalTransfer,
+            cash: totalCash,
+            transfer: totalTransfer,
+            items: itemsMap,
+            date: thaiNow.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to calculate summary' });
+    }
 });
 
 // --- SOCKET ---
