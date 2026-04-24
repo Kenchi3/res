@@ -89,8 +89,25 @@
         }
 
         socket.on('new_order', (order) => {
-            orders.unshift(order);
-            playBeep();
+            // ป้องกันการเพิ่มซ้ำถ้ามีอยู่แล้ว
+            if (!orders.find(o => o.id === order.id)) {
+                orders.unshift(order);
+                playBeep();
+                render();
+            }
+        });
+
+        // --- เพิ่มส่วนนี้: รับ Event การชำระเงินจาก Server ---
+        socket.on('payment_updated', (data) => {
+            const { tableNo, paymentMethod } = data;
+            
+            // วนลูปอัปเดตข้อมูลใน Local Array ให้ตรงกับ Database
+            orders.forEach(o => {
+                if(o.tableNo == tableNo && o.status !== 'paid') {
+                    o.status = 'paid';
+                    o.paymentMethod = paymentMethod;
+                }
+            });
             render();
         });
 
@@ -133,7 +150,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ paymentMethod: method })
                 });
+                
                 if (res.ok) {
+                    // **สำคัญ:** ไม่ต้องอัพเดท local state เองที่นี่ให้ซ้ำซ้อน 
+                    // ให้รอ Event 'payment_updated' จาก Socket จัดการแทน 
+                    // เพื่อให้แน่ใจว่าข้อมูลตรงกับ DB และทุกหน้าจอเปลี่ยนพร้อมกัน
+                    
+                    // แต่ถ้าต้องการให้หน้าจอตัวเองหายทันทีไม่รอ Socket ก็ใส่ logic นี้ลงไป:
                     orders.forEach(o => {
                         if(o.tableNo == tableNo) {
                             o.status = 'paid';
@@ -274,27 +297,21 @@
 
         // --- Helper Functions for Thai Time ---
         
-        // ฟังก์ชันตรวจสอบว่าวันที่ของออเดอร์ตรงกับวันนี้ตามเวลาไทยหรือไม่
         function isInTodayThaiTime(dateString) {
             if (!dateString) return false;
             
-            // แปลงวันที่ของออเดอร์เป็น Object แล้วจัด format เป็นเวลาไทย
             const orderDate = new Date(dateString);
             const thaiOrderDate = new Date(orderDate.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
             
-            // หาเวลาปัจจุบันในโซนไทย
             const now = new Date();
             const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
             
-            // เริ่มต้นของวัน (00:00:00) ตามเวลาไทย
             const startOfDay = new Date(thaiNow);
             startOfDay.setHours(0, 0, 0, 0);
             
-            // สิ้นสุดของวัน (23:59:59.999) ตามเวลาไทย
             const endOfDay = new Date(thaiNow);
             endOfDay.setHours(23, 59, 59, 999);
             
-            // เช็คว่าวันที่ออเดอร์อยู่ระหว่าง startOfDay และ endOfDay หรือไม่
             return thaiOrderDate >= startOfDay && thaiOrderDate <= endOfDay;
         }
 
@@ -307,28 +324,36 @@
             });
         }
 
-        // --- Summary Functions (ที่ถูกแก้ไขให้ Reset ตอนเที่ยงคืน) ---
+        // --- Summary Functions (แก้ไขแล้ว) ---
         function openSummaryModal() {
-            // 1. กรองเฉพาะออเดอร์ที่ชำระเงินแล้ว และเป็นของ "วันนี้" ตามเวลาไทย
+            // กรองเฉพาะออเดอร์ที่ชำระเงินแล้วและเป็นของวันนี้
             const todaysPaidOrders = orders.filter(o => 
                 o.status === 'paid' && 
-                o.createdAt && // ต้องมีข้อมูล createdAt
+                o.createdAt && 
                 isInTodayThaiTime(o.createdAt)
             );
 
             let totalCash = 0;
             let totalTransfer = 0;
 
-            // 2. คำนวณแยกประเภทจากออเดอร์วันนี้
+            // Debug: ดูข้อมูลก่อนคำนวณ
+            console.log("Calculating Summary for orders:", todaysPaidOrders);
+
             todaysPaidOrders.forEach(o => {
-                if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
-                if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+                // เช็คให้แน่ใจว่ามีค่า paymentMethod ถูกต้อง
+                if (o.paymentMethod === 'cash') {
+                    totalCash += o.totalPrice;
+                } else if (o.paymentMethod === 'transfer') {
+                    totalTransfer += o.totalPrice;
+                } else {
+                    // กรณีที่ข้อมูลเป็น null หรือ undefined (อาจจะเป็นยอดเก่าที่ยังไม่ได้ fix)
+                    console.warn(`Order ${o.id} has no payment method or invalid:`, o.paymentMethod);
+                }
             });
             
             const total = totalCash + totalTransfer;
 
             const itemsMap = {};
-            // 3. รวมรายการอาหารจากออเดอร์วันนี้
             todaysPaidOrders.forEach(o => {
                 o.items.forEach(item => {
                     if (!itemsMap[item.name]) {
@@ -343,12 +368,12 @@
                 listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${data.qty})</span><span class="font-semibold">฿${data.price * data.qty}</span></div>`;
             }
 
-            // 4. แสดงผลวันที่ปัจจุบันบน Modal
+            // แสดงวันที่ปัจจุบัน
             const now = new Date();
             const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
             document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
 
-            // 5. อัพเดท HTML ยอดเงิน
+            // อัพเดท HTML ยอดเงิน
             document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
             document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
             document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;

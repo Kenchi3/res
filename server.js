@@ -189,17 +189,24 @@ app.put('/api/orders/:id', async (req, res) => {
 // PUT Table Pay
 app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
     const { tableNo } = req.params;
-    const { paymentMethod } = req.body; // รับประเภทการจ่ายจากหน้าบ้าน
+    const { paymentMethod } = req.body;
 
-    // ตรวจสอบว่าส่ง method มาไหม
     if (!['cash', 'transfer'].includes(paymentMethod)) {
         return res.status(400).json({ error: "Invalid payment method" });
     }
 
+    // 1. อัพเดทใน Database
     await Order.updateMany(
-        { tableNo: tableNo, status: { $ne: 'paid' }, paymentMethod: null }, 
-        { status: 'paid', paymentMethod: paymentMethod } // อัพเดท status และ method
+        { tableNo: tableNo, status: { $ne: 'paid' } }, 
+        { status: 'paid', paymentMethod: paymentMethod }
     );
+
+    // 2. ดึงข้อมูลที่อัพเดทแล้วมาส่งผ่าน Socket (สำคัญมาก)
+    const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
+    
+    // ส่ง Event ไปบอก Frontend ว่าโต๊ะนี้จ่ายเงินแล้ว ด้วยวิธีอะไร
+    io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
+
     res.json({ success: true });
 });
 
