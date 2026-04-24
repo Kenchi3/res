@@ -81,6 +81,39 @@
     <script>
         const socket = io();
         let orders = [];
+        
+        // --- Screen Wake Lock API (ป้องกันหน้าจอดับ) ---
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                // ตรวจสอบว่าเบราว์เซอร์รองรับไหม
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('✅ Wake Lock Active: หน้าจอจะไม่ดับ');
+                    
+                    // กรณี Wake Lock ถูกปล่อย (เช่น เปลี่ยนแท็บ หรือ minimize)
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Wake Lock released');
+                    });
+                } else {
+                    console.warn('Browser does not support Wake Lock API');
+                }
+            } catch (err) {
+                console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+            }
+        }
+
+        // เมื่อกลับเข้ามาที่หน้าจอนี้อีกครั้ง (Re-acquire lock)
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+
+        // เรียกใช้งานทันทีตอนโหลดหน้า
+        requestWakeLock();
+        // -------------------------------------------------
 
         async function loadInitialOrders() {
             const res = await fetch('/api/orders');
@@ -89,7 +122,6 @@
         }
 
         socket.on('new_order', (order) => {
-            // ป้องกันการเพิ่มซ้ำถ้ามีอยู่แล้ว
             if (!orders.find(o => o.id === order.id)) {
                 orders.unshift(order);
                 playBeep();
@@ -97,11 +129,8 @@
             }
         });
 
-        // --- เพิ่มส่วนนี้: รับ Event การชำระเงินจาก Server ---
         socket.on('payment_updated', (data) => {
             const { tableNo, paymentMethod } = data;
-            
-            // วนลูปอัปเดตข้อมูลใน Local Array ให้ตรงกับ Database
             orders.forEach(o => {
                 if(o.tableNo == tableNo && o.status !== 'paid') {
                     o.status = 'paid';
@@ -152,11 +181,6 @@
                 });
                 
                 if (res.ok) {
-                    // **สำคัญ:** ไม่ต้องอัพเดท local state เองที่นี่ให้ซ้ำซ้อน 
-                    // ให้รอ Event 'payment_updated' จาก Socket จัดการแทน 
-                    // เพื่อให้แน่ใจว่าข้อมูลตรงกับ DB และทุกหน้าจอเปลี่ยนพร้อมกัน
-                    
-                    // แต่ถ้าต้องการให้หน้าจอตัวเองหายทันทีไม่รอ Socket ก็ใส่ logic นี้ลงไป:
                     orders.forEach(o => {
                         if(o.tableNo == tableNo) {
                             o.status = 'paid';
@@ -295,23 +319,17 @@
             list.innerHTML = html;
         }
 
-        // --- Helper Functions for Thai Time ---
-        
+        // --- Helper Functions ---
         function isInTodayThaiTime(dateString) {
             if (!dateString) return false;
-            
             const orderDate = new Date(dateString);
             const thaiOrderDate = new Date(orderDate.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-            
             const now = new Date();
             const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-            
             const startOfDay = new Date(thaiNow);
             startOfDay.setHours(0, 0, 0, 0);
-            
             const endOfDay = new Date(thaiNow);
             endOfDay.setHours(23, 59, 59, 999);
-            
             return thaiOrderDate >= startOfDay && thaiOrderDate <= endOfDay;
         }
 
@@ -324,9 +342,7 @@
             });
         }
 
-        // --- Summary Functions (แก้ไขแล้ว) ---
         function openSummaryModal() {
-            // กรองเฉพาะออเดอร์ที่ชำระเงินแล้วและเป็นของวันนี้
             const todaysPaidOrders = orders.filter(o => 
                 o.status === 'paid' && 
                 o.createdAt && 
@@ -336,18 +352,11 @@
             let totalCash = 0;
             let totalTransfer = 0;
 
-            // Debug: ดูข้อมูลก่อนคำนวณ
-            console.log("Calculating Summary for orders:", todaysPaidOrders);
-
             todaysPaidOrders.forEach(o => {
-                // เช็คให้แน่ใจว่ามีค่า paymentMethod ถูกต้อง
                 if (o.paymentMethod === 'cash') {
                     totalCash += o.totalPrice;
                 } else if (o.paymentMethod === 'transfer') {
                     totalTransfer += o.totalPrice;
-                } else {
-                    // กรณีที่ข้อมูลเป็น null หรือ undefined (อาจจะเป็นยอดเก่าที่ยังไม่ได้ fix)
-                    console.warn(`Order ${o.id} has no payment method or invalid:`, o.paymentMethod);
                 }
             });
             
@@ -368,12 +377,10 @@
                 listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${data.qty})</span><span class="font-semibold">฿${data.price * data.qty}</span></div>`;
             }
 
-            // แสดงวันที่ปัจจุบัน
             const now = new Date();
             const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
             document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
 
-            // อัพเดท HTML ยอดเงิน
             document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
             document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
             document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
