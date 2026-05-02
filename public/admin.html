@@ -24,11 +24,11 @@
         <div class="flex items-center gap-3">
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
             
-            <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition hidden md:block">
                 📈 สถิติการขาย
             </a>
             
-            <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition hidden md:block">
                 📋 จัดการเมนู
             </a>
             <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
@@ -82,38 +82,22 @@
         const socket = io();
         let orders = [];
         
-        // --- Screen Wake Lock API (ป้องกันหน้าจอดับ) ---
+        // --- Screen Wake Lock API ---
         let wakeLock = null;
-
         async function requestWakeLock() {
             try {
-                // ตรวจสอบว่าเบราว์เซอร์รองรับไหม
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('✅ Wake Lock Active: หน้าจอจะไม่ดับ');
-                    
-                    // กรณี Wake Lock ถูกปล่อย (เช่น เปลี่ยนแท็บ หรือ minimize)
-                    wakeLock.addEventListener('release', () => {
-                        console.log('Wake Lock released');
-                    });
-                } else {
-                    console.warn('Browser does not support Wake Lock API');
+                    wakeLock.addEventListener('release', () => {});
                 }
-            } catch (err) {
-                console.error(`Wake Lock error: ${err.name}, ${err.message}`);
-            }
+            } catch (err) {}
         }
-
-        // เมื่อกลับเข้ามาที่หน้าจอนี้อีกครั้ง (Re-acquire lock)
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 await requestWakeLock();
             }
         });
-
-        // เรียกใช้งานทันทีตอนโหลดหน้า
         requestWakeLock();
-        // -------------------------------------------------
 
         async function loadInitialOrders() {
             const res = await fetch('/api/orders');
@@ -254,6 +238,9 @@
                 const borderClass = hasNew ? 'border-red-500 border-2' : 'border-gray-200';
                 const headerBg = hasNew ? 'bg-red-50' : 'bg-white';
                 const allDone = tableOrders.every(o => o.status === 'done');
+                
+                // --- คำนวณยอดรวมของโต๊ะนี้ (Grand Total) ---
+                const grandTotal = tableOrders.reduce((sum, o) => sum + o.totalPrice, 0);
 
                 html += `
                     <div class="card bg-white rounded-xl shadow-md overflow-hidden border ${borderClass}">
@@ -301,9 +288,15 @@
                             }).join('')}
                         </div>
                         
+                        <!-- ส่วนแสดงยอดรวมทั้งหมดของโต๊ะ -->
+                        <div class="p-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                            <span class="text-gray-600 font-semibold">ยอดรวมทั้งหมด:</span>
+                            <span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>
+                        </div>
+                        
                         <!-- Footer: ปุ่มชำระเงิน 2 ปุ่ม -->
                         ${allDone ? `
-                            <div class="p-3 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2">
+                            <div class="p-3 border-t border-gray-100 grid grid-cols-2 gap-2 bg-white">
                                 <button onclick="confirmPayment('${tableNo}', 'cash')" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
                                     💵 เงินสด
                                 </button>
@@ -343,7 +336,7 @@
         }
 
         async function openSummaryModal() {
-            // 1. เรียก API สรุปยอดจาก Backend โดยตรง (แม่นยำกว่า)
+            // 1. เรียก API สรุปยอดจาก Backend โดยตรง (แก้ปัญหายอดไม่ตรง)
             try {
                 const res = await fetch('/api/orders/summary/today');
                 const data = await res.json();
@@ -363,8 +356,32 @@
                 document.getElementById('summaryModal').classList.remove('hidden');
 
             } catch (err) {
-                alert('ไม่สามารถดึงข้อมูลสรุปได้');
-                console.error(err);
+                // Fback: ถ้า API ใหม่ยังไม่ทำงาน (กรณีที่ยังไม่ได้ deploy code server ใหม่) ให้คำนวณแบบเก่า
+                console.warn("API Summary not found, using local calculation");
+                
+                const todaysPaidOrders = orders.filter(o => 
+                    o.status === 'paid' && 
+                    o.createdAt && 
+                    isInTodayThaiTime(o.createdAt)
+                );
+
+                let totalCash = 0;
+                let totalTransfer = 0;
+                todaysPaidOrders.forEach(o => {
+                    if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
+                    else if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+                });
+                
+                const total = totalCash + totalTransfer;
+                
+                const now = new Date();
+                const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+                
+                document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
+                document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
+                document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
+                document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
+                document.getElementById('summaryModal').classList.remove('hidden');
             }
         }
 
