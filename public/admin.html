@@ -19,21 +19,13 @@
 <body class="bg-gray-100 min-h-screen">
 
     <!-- Navbar -->
-    <nav class="bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-40 flex justify-between items-center px-6">
+    <nav class="bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-40 flex flex-wrap justify-between items-center px-6 gap-2">
         <h1 class="text-xl font-bold">👨‍🍳 หน้าครัว (Admin)</h1>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
-            
-            <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition hidden md:block">
-                📈 สถิติการขาย
-            </a>
-            
-            <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition hidden md:block">
-                📋 จัดการเมนู
-            </a>
-            <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
-                💰 สรุปยอดวันนี้
-            </button>
+            <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📈 สถิติ</a>
+            <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📋 เมนู</a>
+            <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">💰 สรุปยอด</button>
         </div>
     </nav>
 
@@ -56,7 +48,6 @@
                 <button onclick="closeSummaryModal()" class="text-white text-2xl hover:opacity-70">&times;</button>
             </div>
             <div class="p-5 overflow-y-auto flex-grow">
-                <!-- Cards แยกยอด -->
                 <div class="grid grid-cols-3 gap-4 mb-4">
                     <div class="bg-green-50 p-3 rounded-xl text-center border border-green-200">
                         <p class="text-xs text-gray-500">รวมทั้งหมด</p>
@@ -71,6 +62,11 @@
                         <p class="text-xl font-bold text-purple-600" id="sumTransfer">฿0</p>
                     </div>
                 </div>
+                <!-- เพิ่มส่วนจำนวนลูกค้า -->
+                <div class="bg-blue-50 p-3 rounded-xl text-center border border-blue-200 mb-4">
+                    <p class="text-xs text-gray-500">👥 จำนวนลูกค้าวันนี้</p>
+                    <p class="text-xl font-bold text-blue-600" id="sumGuests">0 ท่าน</p>
+                </div>
                 
                 <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย (วันนี้):</h3>
                 <div id="summaryList" class="space-y-2 text-sm"></div>
@@ -82,21 +78,10 @@
         const socket = io();
         let orders = [];
         
-        // --- Screen Wake Lock API ---
+        // --- Screen Wake Lock ---
         let wakeLock = null;
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    wakeLock.addEventListener('release', () => {});
-                }
-            } catch (err) {}
-        }
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                await requestWakeLock();
-            }
-        });
+        async function requestWakeLock() { try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => {}); } } catch (err) {} }
+        document.addEventListener('visibilitychange', async () => { if (wakeLock !== null && document.visibilityState === 'visible') { await requestWakeLock(); } });
         requestWakeLock();
 
         async function loadInitialOrders() {
@@ -116,20 +101,15 @@
         socket.on('payment_updated', (data) => {
             const { tableNo, paymentMethod } = data;
             orders.forEach(o => {
-                if(o.tableNo == tableNo && o.status !== 'paid') {
-                    o.status = 'paid';
-                    o.paymentMethod = paymentMethod;
-                }
+                if(o.tableNo == tableNo && o.status !== 'paid') { o.status = 'paid'; o.paymentMethod = paymentMethod; }
             });
             render();
         });
 
         function playBeep() {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
             osc.frequency.value = 800; osc.type = "sine";
             gain.gain.setValueAtTime(0.5, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
@@ -139,73 +119,33 @@
         async function updateStatus(id, status) {
             const order = orders.find(o => o.id === id);
             if(order) {
-                order.status = status;
-                render();
-                try {
-                    await fetch(`/api/orders/${id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: status })
-                    });
-                } catch (err) {
-                    console.error('Failed to update status:', err);
-                }
+                order.status = status; render();
+                try { await fetch(`/api/orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status }) }); } catch (err) {}
             }
         }
 
         async function confirmPayment(tableNo, method) {
             const methodText = method === 'cash' ? 'เงินสด' : 'โอนเงิน';
             if(!confirm(`ยืนยันชำระบิล โต๊ะ ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
-
             try {
-                const res = await fetch(`/api/orders/table/${tableNo}/pay`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paymentMethod: method })
-                });
-                
+                const res = await fetch(`/api/orders/table/${tableNo}/pay`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentMethod: method }) });
                 if (res.ok) {
-                    orders.forEach(o => {
-                        if(o.tableNo == tableNo) {
-                            o.status = 'paid';
-                            o.paymentMethod = method;
-                        }
-                    });
+                    orders.forEach(o => { if(o.tableNo == tableNo) { o.status = 'paid'; o.paymentMethod = method; } });
                     render();
-                } else {
-                    alert('เกิดข้อผิดพลาดในการชำระบิล');
-                }
-            } catch (err) {
-                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-            }
+                } else { alert('เกิดข้อผิดพลาดในการชำระบิล'); }
+            } catch (err) { alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
         }
 
         async function removeItemFromOrder(orderId, itemId) {
-            if(!confirm('ยืนยันการลบรายการนี้ออกจากออเดอร์?')) return;
-
-            const order = orders.find(o => o.id === orderId);
-            if(!order) return;
-
+            if(!confirm('ยืนยันการลบรายการนี้?')) return;
+            const order = orders.find(o => o.id === orderId); if(!order) return;
             const newItems = order.items.filter(i => i.id !== itemId);
-
-            const res = await fetch(`/api/orders/${orderId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: newItems })
-            });
-
+            const res = await fetch(`/api/orders/${orderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: newItems }) });
             if (res.ok) {
                 const data = await res.json();
-                if (data.deleted) {
-                    orders = orders.filter(o => o.id !== orderId);
-                } else {
-                    order.items = newItems;
-                    order.totalPrice = data.totalPrice;
-                }
+                if (data.deleted) { orders = orders.filter(o => o.id !== orderId); } else { order.items = newItems; order.totalPrice = data.totalPrice; }
                 render();
-            } else {
-                alert('เกิดข้อผิดพลาดในการลบ');
-            }
+            } else { alert('เกิดข้อผิดพลาดในการลบ'); }
         }
 
         function render() {
@@ -216,13 +156,8 @@
             const pendingCount = orders.filter(o => o.status === 'new' || o.status === 'cooking').length;
             document.getElementById('countBadge').innerText = `${pendingCount} รอทำ`;
 
-            if(activeOrders.length === 0) {
-                list.innerHTML = '';
-                empty.classList.remove('hidden');
-                return;
-            } else {
-                empty.classList.add('hidden');
-            }
+            if(activeOrders.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; } 
+            else { empty.classList.add('hidden'); }
 
             const grouped = {};
             activeOrders.forEach(order => {
@@ -231,39 +166,33 @@
             });
 
             let html = '';
-
             Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b)).forEach(tableNo => {
                 const tableOrders = grouped[tableNo];
                 const hasNew = tableOrders.some(o => o.status === 'new');
                 const borderClass = hasNew ? 'border-red-500 border-2' : 'border-gray-200';
                 const headerBg = hasNew ? 'bg-red-50' : 'bg-white';
                 const allDone = tableOrders.every(o => o.status === 'done');
-                
-                // --- คำนวณยอดรวมของโต๊ะนี้ (Grand Total) ---
                 const grandTotal = tableOrders.reduce((sum, o) => sum + o.totalPrice, 0);
+                
+                // หา pax จาก order แรกของโต๊ะ
+                const paxCount = tableOrders[0].pax || '-';
 
                 html += `
                     <div class="card bg-white rounded-xl shadow-md overflow-hidden border ${borderClass}">
                         <div class="${headerBg} p-4 border-b flex justify-between items-center">
-                            <h3 class="text-2xl font-bold text-gray-800">โต๊ะ ${tableNo}</h3>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-800">โต๊ะ ${tableNo}</h3>
+                                <p class="text-sm text-gray-500">👥 ${paxCount} ท่าน</p>
+                            </div>
                             <span class="text-xs font-bold text-gray-400">${tableOrders.length} รายการสั่งซื้อ</span>
                         </div>
                         
                         <div class="divide-y">
                             ${tableOrders.map(order => {
-                                let statusHtml = '';
-                                let btnHtml = '';
-
-                                if (order.status === 'new') {
-                                    statusHtml = '<span class="text-red-600 font-bold text-xs animate-pulse">🔔 รอทำ</span>';
-                                    btnHtml = `<button onclick="updateStatus('${order.id}', 'cooking')" class="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 rounded font-semibold">เริ่มทำ</button>`;
-                                } else if (order.status === 'cooking') {
-                                    statusHtml = '<span class="text-yellow-600 font-bold text-xs">🔥 กำลังทำ</span>';
-                                    btnHtml = `<button onclick="updateStatus('${order.id}', 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`;
-                                } else {
-                                    statusHtml = '<span class="text-green-600 font-bold text-xs">✅ เสร็จ</span>';
-                                    btnHtml = ''; 
-                                }
+                                let statusHtml = ''; let btnHtml = '';
+                                if (order.status === 'new') { statusHtml = '<span class="text-red-600 font-bold text-xs animate-pulse">🔔 รอทำ</span>'; btnHtml = `<button onclick="updateStatus('${order.id}', 'cooking')" class="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 rounded font-semibold">เริ่มทำ</button>`; }
+                                else if (order.status === 'cooking') { statusHtml = '<span class="text-yellow-600 font-bold text-xs">🔥 กำลังทำ</span>'; btnHtml = `<button onclick="updateStatus('${order.id}', 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`; }
+                                else { statusHtml = '<span class="text-green-600 font-bold text-xs">✅ เสร็จ</span>'; btnHtml = ''; }
 
                                 return `
                                 <div class="p-3">
@@ -274,7 +203,11 @@
                                     <div class="text-sm text-gray-700 space-y-1">
                                         ${order.items.map(i => `
                                             <div class="flex justify-between items-center group">
-                                                <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
+                                                <div class="flex-grow">
+                                                    <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
+                                                    <!-- แสดงหมายเหตุถ้ามี -->
+                                                    ${i.note ? `<p class="text-xs text-blue-600 font-medium mt-0.5">📝 ${i.note}</p>` : ''}
+                                                </div>
                                                 <button onclick="removeItemFromOrder('${order.id}', '${i.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
                                             </div>
                                         `).join('')}
@@ -283,111 +216,48 @@
                                         <span class="font-bold text-blue-600">฿${order.totalPrice}</span>
                                         <div class="w-24">${btnHtml}</div>
                                     </div>
-                                </div>
-                                `;
+                                </div>`;
                             }).join('')}
                         </div>
-                        
-                        <!-- ส่วนแสดงยอดรวมทั้งหมดของโต๊ะ -->
+
                         <div class="p-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
                             <span class="text-gray-600 font-semibold">ยอดรวมทั้งหมด:</span>
                             <span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>
                         </div>
                         
-                        <!-- Footer: ปุ่มชำระเงิน 2 ปุ่ม -->
                         ${allDone ? `
                             <div class="p-3 border-t border-gray-100 grid grid-cols-2 gap-2 bg-white">
-                                <button onclick="confirmPayment('${tableNo}', 'cash')" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
-                                    💵 เงินสด
-                                </button>
-                                <button onclick="confirmPayment('${tableNo}', 'transfer')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">
-                                    🏦 โอนเงิน
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
+                                <button onclick="confirmPayment('${tableNo}', 'cash')" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">💵 เงินสด</button>
+                                <button onclick="confirmPayment('${tableNo}', 'transfer')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">🏦 โอนเงิน</button>
+                            </div>` : ''}
+                    </div>`;
             });
-
             list.innerHTML = html;
         }
 
-        // --- Helper Functions ---
-        function isInTodayThaiTime(dateString) {
-            if (!dateString) return false;
-            const orderDate = new Date(dateString);
-            const thaiOrderDate = new Date(orderDate.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-            const now = new Date();
-            const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-            const startOfDay = new Date(thaiNow);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(thaiNow);
-            endOfDay.setHours(23, 59, 59, 999);
-            return thaiOrderDate >= startOfDay && thaiOrderDate <= endOfDay;
-        }
-
-        function formatThaiDate(dateObj) {
-            return dateObj.toLocaleDateString('th-TH', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
-
         async function openSummaryModal() {
-            // 1. เรียก API สรุปยอดจาก Backend โดยตรง (แก้ปัญหายอดไม่ตรง)
             try {
                 const res = await fetch('/api/orders/summary/today');
                 const data = await res.json();
-
-                // 2. อัพเดท UI
                 document.getElementById('currentDateDisplay').innerText = data.date;
                 document.getElementById('sumTotal').innerText = `฿${data.total.toLocaleString()}`;
                 document.getElementById('sumCash').innerText = `฿${data.cash.toLocaleString()}`;
                 document.getElementById('sumTransfer').innerText = `฿${data.transfer.toLocaleString()}`;
+                // แสดงจำนวนลูกค้า
+                document.getElementById('sumGuests').innerText = `${data.guests} ท่าน`;
 
                 let listHtml = '';
                 for (const [name, itemData] of Object.entries(data.items)) {
                     listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${itemData.qty})</span><span class="font-semibold">฿${itemData.price * itemData.qty}</span></div>`;
                 }
                 document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ยังไม่มียอดขายวันนี้</p>';
-                
                 document.getElementById('summaryModal').classList.remove('hidden');
-
             } catch (err) {
-                // Fback: ถ้า API ใหม่ยังไม่ทำงาน (กรณีที่ยังไม่ได้ deploy code server ใหม่) ให้คำนวณแบบเก่า
-                console.warn("API Summary not found, using local calculation");
-                
-                const todaysPaidOrders = orders.filter(o => 
-                    o.status === 'paid' && 
-                    o.createdAt && 
-                    isInTodayThaiTime(o.createdAt)
-                );
-
-                let totalCash = 0;
-                let totalTransfer = 0;
-                todaysPaidOrders.forEach(o => {
-                    if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
-                    else if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
-                });
-                
-                const total = totalCash + totalTransfer;
-                
-                const now = new Date();
-                const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-                
-                document.getElementById('currentDateDisplay').innerText = formatThaiDate(thaiNow);
-                document.getElementById('sumTotal').innerText = `฿${total.toLocaleString()}`;
-                document.getElementById('sumCash').innerText = `฿${totalCash.toLocaleString()}`;
-                document.getElementById('sumTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
-                document.getElementById('summaryModal').classList.remove('hidden');
+                alert('ไม่สามารถดึงข้อมูลสรุปได้');
             }
         }
 
-        function closeSummaryModal() {
-            document.getElementById('summaryModal').classList.add('hidden');
-        }
+        function closeSummaryModal() { document.getElementById('summaryModal').classList.add('hidden'); }
 
         loadInitialOrders();
     </script>

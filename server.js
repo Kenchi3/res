@@ -9,21 +9,18 @@ require('dotenv').config();
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// ตั้งค่า Cloudinary (ดึงค่าจาก Environment Variables)
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// ตั้งค่า Storage ให้ Multer ใช้ Cloudinary
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-        folder: 'steak-khunnor', // ชื่อโฟลเดอร์บน Cloudinary
+        folder: 'steak-khunnor',
         allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
         public_id: (req, file) => {
-            // ตั้งชื่อไฟล์แบบ Unique
             return Date.now() + '-' + Math.round(Math.random() * 1E9);
         },
     },
@@ -40,7 +37,7 @@ mongoose.connect(process.env.MONGODB_URI)
 const menuSchema = new mongoose.Schema({
   name: String,
   price: Number,
-  img: String, // เก็บ URL จาก Cloudinary
+  img: String,
   category: String,
   status: { type: String, default: 'available' }
 });
@@ -49,11 +46,13 @@ const Menu = mongoose.model('Menu', menuSchema);
 
 const orderSchema = new mongoose.Schema({
   tableNo: String,
+  pax: { type: Number, default: 1 }, // [เพิ่มใหม่] จำนวนลูกค้า
   items: [{
     id: String,
     name: String,
     price: Number,
-    qty: Number
+    qty: Number,
+    note: String // [เพิ่มใหม่] หมายเหตุของแต่ละเมนู
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
@@ -73,7 +72,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ROUTES ---
-app.get('/', (req, res) => res.redirect('/table/1')); // Default ไปโต๊ะ 1
+app.get('/', (req, res) => res.redirect('/table/1'));
 app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
 app.get('/admin03030853khunnor', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 app.get('/table/:tableId', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
@@ -81,8 +80,6 @@ app.get('/admin03030853khunnor/menumanage', (req, res) => res.sendFile(path.join
 app.get('/admin03030853khunnor/statistics', (req, res) => res.sendFile(path.join(__dirname, 'public/statistics.html')));
 
 // --- API: MENU ---
-
-// GET Menu
 app.get('/api/menu', async (req, res) => {
     let menus = await Menu.find();
     if (menus.length === 0) {
@@ -101,16 +98,14 @@ app.get('/api/menu', async (req, res) => {
     res.json(menus);
 });
 
-// POST Menu
 app.post('/api/menu', upload.single('img'), async (req, res) => {
     const { name, price, category } = req.body;
-    const imgPath = req.file ? req.file.path : ''; 
+    const imgPath = req.file ? req.file.path : '';
     const newItem = new Menu({ name, price: parseFloat(price), img: imgPath, category, status: 'available' });
     await newItem.save();
     res.status(201).json(newItem);
 });
 
-// PUT Menu
 app.put('/api/menu/:id', upload.single('img'), async (req, res) => {
     const { id } = req.params;
     const { name, price, category, status } = req.body;
@@ -121,14 +116,12 @@ app.put('/api/menu/:id', upload.single('img'), async (req, res) => {
     item.price = price || item.price;
     item.category = category || item.category;
     item.status = status || item.status;
-    
     if (req.file) item.img = req.file.path;
     
     await item.save();
     res.json(item);
 });
 
-// DELETE Menu
 app.delete('/api/menu/:id', async (req, res) => {
     await Menu.findByIdAndDelete(req.params.id);
     res.json({ success: true });
@@ -136,16 +129,15 @@ app.delete('/api/menu/:id', async (req, res) => {
 
 // --- API: ORDERS ---
 
-// GET Orders
 app.get('/api/orders', async (req, res) => {
     const orders = await Order.find();
     res.json(orders);
 });
 
-// POST Order
+// [แก้ไข] POST Order ให้รับค่า pax และ note
 app.post('/api/order', async (req, res) => {
     const newOrder = new Order({
-        ...req.body,
+        ...req.body, // รับ pax และ items ที่มี note มาด้วย
         status: 'new',
         time: new Date().toLocaleTimeString('th-TH'),
         createdAt: new Date()
@@ -155,14 +147,12 @@ app.post('/api/order', async (req, res) => {
     res.status(201).json(newOrder);
 });
 
-// DELETE Orders (Clear All)
 app.delete('/api/orders', async (req, res) => {
     await Order.deleteMany({});
     io.emit('orders_cleared');
     res.json({ success: true });
 });
 
-// PUT Order (Update Status / Items)
 app.put('/api/orders/:id', async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
@@ -184,7 +174,6 @@ app.put('/api/orders/:id', async (req, res) => {
     res.json(order);
 });
 
-// PUT Table Pay
 app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
     const { tableNo } = req.params;
     const { paymentMethod } = req.body;
@@ -193,37 +182,28 @@ app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
         return res.status(400).json({ error: "Invalid payment method" });
     }
 
-    // 1. อัพเดทใน Database
     await Order.updateMany(
         { tableNo: tableNo, status: { $ne: 'paid' } }, 
         { status: 'paid', paymentMethod: paymentMethod }
     );
 
-    // 2. ดึงข้อมูลที่อัพเดทแล้วมาส่งผ่าน Socket
     const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
-    
     io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
-
     res.json({ success: true });
 });
 
-// --- [เพิ่มใหม่] API: SUMMARY (สรุปยอดขายวันนี้จาก Database) ---
+// [เพิ่มใหม่] API Summary for Statistics
 app.get('/api/orders/summary/today', async (req, res) => {
     try {
-        // 1. หาช่วงเวลาของวันนี้ (Timezone: Asia/Bangkok)
         const now = new Date();
         const startOfDay = new Date(now);
-        startOfDay.setHours(0, 0, 0, 0); 
-        // Note: ถ้า Server ตั้งเวลาเป็น UTC ต้อง adjust offset ที่นี่ แต่ถ้าใช้ Node.js v14+ จะจัดการให้
-        // เพื่อความปลอดภัย เราจะ filter เบื้องต้นด้วยวันที่ใกล้เคียง
+        startOfDay.setHours(0, 0, 0, 0);
         
-        // 2. ดึงออเดอร์ที่จ่ายแล้ว
         const paidOrders = await Order.find({ 
             status: 'paid',
             createdAt: { $gte: startOfDay } 
         });
 
-        // 3. Filter แบบละเอียดอีกครั้งด้วย Timezone ไทย (ป้องกันกรณี Server เป็น UTC)
         const thaiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
         const thaiStart = new Date(thaiNow);
         thaiStart.setHours(0, 0, 0, 0);
@@ -234,17 +214,17 @@ app.get('/api/orders/summary/today', async (req, res) => {
             return thaiOrderDate >= thaiStart;
         });
 
-        // 4. คำนวณยอด
         let totalCash = 0;
         let totalTransfer = 0;
+        let totalGuests = 0; // เพิ่มการนับลูกค้า
         const itemsMap = {};
 
         todaysOrders.forEach(o => {
-            // เช็ค Method อย่างเข้มงวด
             if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
             else if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
+            
+            totalGuests += o.pax || 0; // บวกจำนวนลูกค้า
 
-            // นับสินค้า
             o.items.forEach(item => {
                 if (!itemsMap[item.name]) itemsMap[item.name] = { qty: 0, price: item.price };
                 itemsMap[item.name].qty += item.qty;
@@ -255,6 +235,7 @@ app.get('/api/orders/summary/today', async (req, res) => {
             total: totalCash + totalTransfer,
             cash: totalCash,
             transfer: totalTransfer,
+            guests: totalGuests, // ส่งกลับไปด้วย
             items: itemsMap,
             date: thaiNow.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
         });
@@ -265,11 +246,9 @@ app.get('/api/orders/summary/today', async (req, res) => {
     }
 });
 
-// --- SOCKET ---
 io.on('connection', (socket) => {
     console.log('User connected');
 });
 
-// --- START SERVER ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
