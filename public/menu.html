@@ -73,25 +73,33 @@
         </div>
     </div>
 
-    <!-- Cart Footer -->
-    <div id="cartFooter" onclick="openCart()" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-orange-300 shadow-2xl p-4 transform translate-y-full transition-transform duration-300 z-50 cursor-pointer hover:bg-orange-50">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-3">
+    <!-- Cart Footer (แก้ไข: ปุ่มใหญ่ชัดเจนขึ้น) -->
+    <div id="cartFooter" onclick="openCart()" class="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-orange-200 shadow-2xl p-3 transform translate-y-full transition-transform duration-300 z-50 cursor-pointer hover:bg-gray-50">
+        <div class="max-w-4xl mx-auto flex justify-between items-center gap-3">
+            <!-- ส่วนซ้าย: ไอคอนและราคา -->
+            <div class="flex items-center gap-3 flex-shrink-0">
                 <div class="bg-orange-100 text-orange-600 p-2 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
                 </div>
                 <div>
-                    <p class="text-orange-500 text-sm font-medium">รวมทั้งหมด</p>
-                    <p class="text-3xl font-bold text-orange-600" id="totalPrice">฿0</p>
+                    <p class="text-xs text-gray-500 font-medium">รวมทั้งหมด</p>
+                    <p class="text-2xl font-bold text-orange-600" id="totalPrice">฿0</p>
                 </div>
             </div>
-            <div class="text-right">
-                <p class="text-xs text-gray-400 mb-1">แตะเพื่อดูรายการ</p>
-            </div>
+
+            <!-- ส่วนขวา: ปุ่มกดชัดเจน -->
+            <button onclick="event.stopPropagation(); openCart()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition text-lg flex items-center justify-center gap-2 active:scale-95">
+                ดูรายการ
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
         </div>
     </div>
 
-    <!-- Pax Modal (ถามจำนวนลูกค้า) -->
+    <!-- Pax Modal -->
     <div id="paxModal" class="fixed inset-0 z-[70] flex justify-center items-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div class="bg-orange-500 p-5 text-center">
@@ -141,9 +149,8 @@
 
         let menuData = []; 
         let cart = [];
-        let pax = 1; // จำนวนลูกค้า
+        let pax = 1;
 
-        // --- Event: Search ---
         document.getElementById('searchInput').addEventListener('input', (e) => {
             renderMenu(e.target.value);
         });
@@ -162,7 +169,6 @@
         
         loadMenuData();
 
-        // --- Pax Logic ---
         function confirmPax() {
             const val = document.getElementById('paxInput').value;
             if(val < 1) return alert("กรุณาระบุจำนวนลูกค้าอย่างน้อย 1 ท่าน");
@@ -170,7 +176,6 @@
             document.getElementById('paxModal').classList.add('hidden');
         }
 
-        // --- Menu Rendering ---
         function renderMenu(searchQuery = '') {
             const container = document.getElementById('menuList');
             const noResult = document.getElementById('noResult');
@@ -239,18 +244,14 @@
             return item;
         }
 
-        // --- Cart Logic ---
-        // เปลี่ยนแปลง: เพิ่ม Logic การจัดการ Note
         function addToCart(id, note = "") {
             const item = findItemById(id);
             if (!item) return;
 
-            // ถ้ามี note ให้ถือว่าเป็น item ใหม่เสมอ (ง่ายกว่า group ด้วย id+note)
-            // แต่ถ้าไม่มี note ให้ไป group กับ item ที่ไม่มี note เดิมได้
             if(note) {
                  cart.push({ ...item, qty: 1, note: note });
             } else {
-                const exist = cart.find(c => c.id === id && !c.note); // หาตัวเดิมที่ไม่มี note
+                const exist = cart.find(c => c.id === id && !c.note);
                 if (exist) exist.qty++;
                 else cart.push({ ...item, qty: 1, note: "" });
             }
@@ -332,7 +333,6 @@
                         <button onclick="removeItem(${index})" class="text-red-400 hover:text-red-600 text-xs">❌ ลบ</button>
                     </div>
                     
-                    <!-- ช่องพิมพ์หมายเหตุ -->
                     <input type="text" placeholder="เช่น เอากลับบ้าน, ไม่ใส่ผัก..." 
                         value="${item.note || ''}" 
                         onchange="updateItemNote(${index}, this.value)"
@@ -353,7 +353,6 @@
         async function confirmOrder() {
             if (cart.length === 0) return alert("กรุณาเลือกอาหารก่อนครับ");
             
-            // Clean up items before sending (remove empty notes)
             const cleanItems = cart.map(item => ({
                 id: item.id,
                 name: item.name,
@@ -364,7 +363,7 @@
 
             const orderData = {
                 tableNo: tableId,
-                pax: pax, // ส่งจำนวนลูกค้าไปด้วย
+                pax: pax,
                 items: cleanItems,
                 totalPrice: cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
             };
