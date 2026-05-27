@@ -5,7 +5,6 @@ const path = require('path');
 const multer = require('multer');
 require('dotenv').config();
 
-// Fix DNS resolution issues for MongoDB Atlas querySrv
 const dns = require('dns');
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
@@ -24,9 +23,7 @@ const storage = new CloudinaryStorage({
     params: {
         folder: 'steak-khunnor',
         allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        public_id: (req, file) => {
-            return Date.now() + '-' + Math.round(Math.random() * 1E9);
-        },
+        public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1E9),
     },
 });
 const upload = multer({ storage: storage });
@@ -39,24 +36,23 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // --- Schema Definitions ---
 const menuSchema = new mongoose.Schema({
-  name: String,
-  price: Number,
-  img: String,
-  category: String,
-  status: { type: String, default: 'available' }
+  name: String, price: Number, img: String, category: String, status: { type: String, default: 'available' }
 });
 menuSchema.set('toJSON', { virtuals: true });
 const Menu = mongoose.model('Menu', menuSchema);
 
+// [อัปเดต] Order Schema - เพิ่ม originalPrice และ isCustom
 const orderSchema = new mongoose.Schema({
   tableNo: String,
-  pax: { type: Number, default: 1 }, // [เพิ่มใหม่] จำนวนลูกค้า
+  pax: { type: Number, default: 1 },
   items: [{
     id: String,
     name: String,
-    price: Number,
+    price: Number, // ราคาขาย (อาจถูกลดแล้ว)
+    originalPrice: Number, // ราคาต้นทาง (สำหรับคำนวณส่วนลด)
     qty: Number,
-    note: String // [เพิ่มใหม่] หมายเหตุของแต่ละเมนู
+    note: String,
+    isCustom: { type: Boolean, default: false } // เมนูนอกแบบ
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
@@ -75,7 +71,7 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- ROUTES ---
+// --- ROUTES (HTML) ---
 app.get('/', (req, res) => res.redirect('/table/1'));
 app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
 app.get('/admin03030853khunnor', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
@@ -115,13 +111,11 @@ app.put('/api/menu/:id', upload.single('img'), async (req, res) => {
     const { name, price, category, status } = req.body;
     const item = await Menu.findById(id);
     if (!item) return res.status(404).json({ error: "Not found" });
-
     item.name = name || item.name;
     item.price = price || item.price;
     item.category = category || item.category;
     item.status = status || item.status;
     if (req.file) item.img = req.file.path;
-    
     await item.save();
     res.json(item);
 });
@@ -138,13 +132,11 @@ app.get('/api/orders', async (req, res) => {
     res.json(orders);
 });
 
-// [แก้ไข] POST Order ให้รับค่า pax, note และรองรับระบบสั่งกลับบ้าน (Takeaway)
+// [สำคัญ] POST Order - ต้องเก็บ originalPrice ด้วย
 app.post('/api/order', async (req, res) => {
     let { tableNo, pax, items, totalPrice } = req.body;
 
-    // --- ระบบคิวสั่งกลับบ้านอัจฉริยะ ---
     if (tableNo === 'takeaway') {
-        // ไม่ระบุชื่อ: รันเลขคิวอัตโนมัติตามจำนวนออเดอร์กลับบ้านของวันนี้
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         const todayTakeawayCount = await Order.countDocuments({
@@ -153,10 +145,8 @@ app.post('/api/order', async (req, res) => {
         });
         tableNo = `กลับบ้าน #${todayTakeawayCount + 1}`;
     } else if (tableNo.startsWith('takeaway-')) {
-        // ระบุชื่อลูกค้า: ใช้ชื่อเป็นตัวระบุคิว
         const customerName = tableNo.substring('takeaway-'.length).trim();
         tableNo = customerName ? `กลับบ้าน (${customerName})` : `กลับบ้าน`;
-        // ถ้าสุดท้ายชื่อว่าง ให้รันเลขคิวเหมือนกัน
         if (tableNo === 'กลับบ้าน') {
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
@@ -168,10 +158,17 @@ app.post('/api/order', async (req, res) => {
         }
     }
 
+    // Ensure originalPrice exists
+    const processedItems = items.map(i => ({
+        ...i,
+        originalPrice: i.originalPrice || i.price, 
+        price: i.price
+    }));
+
     const newOrder = new Order({
         tableNo,
         pax: pax || 1,
-        items,
+        items: processedItems,
         totalPrice,
         status: 'new',
         time: new Date().toLocaleTimeString('th-TH'),
@@ -188,34 +185,49 @@ app.delete('/api/orders', async (req, res) => {
     res.json({ success: true });
 });
 
+// [สำคัญ] PUT Order - รองรับการแก้ไขราคาและรายการ
 app.put('/api/orders/:id', async (req, res) => {
     const { id } = req.params;
+    const { items, status } = req.body;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ error: "Not found" });
 
-    if (req.body.items) {
-        order.items = req.body.items;
-        order.totalPrice = req.body.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    if (items) {
+        const processedItems = items.map(i => ({
+            id: i.id,
+            name: i.name,
+            price: Number(i.price),
+            originalPrice: Number(i.originalPrice || i.price), // Keep original for discount calc
+            qty: i.qty,
+            note: i.note,
+            isCustom: i.isCustom || false
+        }));
+        
+        order.items = processedItems;
+        order.totalPrice = processedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        
         if (order.items.length === 0) {
             await Order.findByIdAndDelete(id);
             return res.json({ success: true, deleted: true });
         }
     }
-    if (req.body.status) {
-        order.status = req.body.status;
-    }
+    
+    if (status) order.status = status;
     
     await order.save();
     res.json(order);
 });
 
+// [เพิ่มใหม่] DELETE Order - ยกเลิกออเดอร์ทั้งก้อน
+app.delete('/api/orders/:id', async (req, res) => {
+    await Order.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+});
+
 app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
     const { tableNo } = req.params;
     const { paymentMethod } = req.body;
-
-    if (!['cash', 'transfer'].includes(paymentMethod)) {
-        return res.status(400).json({ error: "Invalid payment method" });
-    }
+    if (!['cash', 'transfer'].includes(paymentMethod)) return res.status(400).json({ error: "Invalid payment method" });
 
     await Order.updateMany(
         { tableNo: tableNo, status: { $ne: 'paid' } }, 
@@ -227,7 +239,7 @@ app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
     res.json({ success: true });
 });
 
-// [เพิ่มใหม่] API Summary for Statistics
+// [อัปเดต] API Summary - คำนวณส่วนลด
 app.get('/api/orders/summary/today', async (req, res) => {
     try {
         const now = new Date();
@@ -251,17 +263,21 @@ app.get('/api/orders/summary/today', async (req, res) => {
 
         let totalCash = 0;
         let totalTransfer = 0;
-        let totalGuests = 0; // เพิ่มการนับลูกค้า
+        let totalDiscount = 0; 
+        let totalGuests = 0;
         const itemsMap = {};
 
         todaysOrders.forEach(o => {
             if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
             else if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
             
-            totalGuests += o.pax || 0; // บวกจำนวนลูกค้า
+            totalGuests += o.pax || 0;
 
             o.items.forEach(item => {
-                if (!itemsMap[item.name]) itemsMap[item.name] = { qty: 0, price: item.price };
+                const itemDiscount = (item.originalPrice - item.price) * item.qty;
+                if (itemDiscount > 0) totalDiscount += itemDiscount;
+
+                if (!itemsMap[item.name]) itemsMap[item.name] = { qty: 0, price: item.price, originalPrice: item.originalPrice };
                 itemsMap[item.name].qty += item.qty;
             });
         });
@@ -270,7 +286,8 @@ app.get('/api/orders/summary/today', async (req, res) => {
             total: totalCash + totalTransfer,
             cash: totalCash,
             transfer: totalTransfer,
-            guests: totalGuests, // ส่งกลับไปด้วย
+            discount: totalDiscount,
+            guests: totalGuests,
             items: itemsMap,
             date: thaiNow.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
         });

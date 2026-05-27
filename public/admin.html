@@ -15,8 +15,6 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-
-        /* Premium Modal Animations */
         .modal-active { opacity: 1 !important; pointer-events: auto !important; }
         .modal-box-active { transform: scale(1) !important; opacity: 1 !important; }
     </style>
@@ -54,11 +52,17 @@
                 <button onclick="closeSummaryModal()" class="text-white text-2xl hover:opacity-70">&times;</button>
             </div>
             <div class="p-5 overflow-y-auto flex-grow">
-                <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-green-50 p-3 rounded-xl text-center border border-green-200">
                         <p class="text-xs text-gray-500">รวมทั้งหมด</p>
                         <p class="text-xl font-bold text-green-600" id="sumTotal">฿0</p>
                     </div>
+                    <div class="bg-red-50 p-3 rounded-xl text-center border border-red-200">
+                        <p class="text-xs text-gray-500">🎉 ส่วนลดรวม</p>
+                        <p class="text-xl font-bold text-red-500" id="sumDiscount">฿0</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-yellow-50 p-3 rounded-xl text-center border border-yellow-200">
                         <p class="text-xs text-gray-500">💵 เงินสด</p>
                         <p class="text-xl font-bold text-yellow-600" id="sumCash">฿0</p>
@@ -68,7 +72,6 @@
                         <p class="text-xl font-bold text-purple-600" id="sumTransfer">฿0</p>
                     </div>
                 </div>
-                <!-- เพิ่มส่วนจำนวนลูกค้า -->
                 <div class="bg-blue-50 p-3 rounded-xl text-center border border-blue-200 mb-4">
                     <p class="text-xs text-gray-500">👥 จำนวนลูกค้าวันนี้</p>
                     <p class="text-xl font-bold text-blue-600" id="sumGuests">0 ท่าน</p>
@@ -80,10 +83,74 @@
         </div>
     </div>
 
+    <!-- Edit Order Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-3 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+            <div class="p-4 border-b flex justify-between items-center bg-blue-500 rounded-t-2xl flex-shrink-0">
+                <div>
+                    <h2 class="text-xl font-bold text-white">📝 แก้ไขบิล: <span id="editTableTitle">-</span></h2>
+                    <p class="text-blue-100 text-xs mt-1">แก้ไขราคา, เพิ่ม/ลบรายการ, เมนูนอกแบบ (เฉพาะออเดอร์ที่ยังไม่จ่ายเงิน)</p>
+                </div>
+                <button onclick="closeEditModal()" class="text-white text-2xl hover:opacity-70 font-bold">&times;</button>
+            </div>
+
+            <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
+                <!-- Left: Add Items -->
+                <div class="md:w-1/2 border-r border-gray-100 flex flex-col overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
+                        <input type="text" id="editSearch" placeholder="🔍 ค้นหาเมนู..." oninput="renderEditMenu()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400">
+                    </div>
+                    
+                    <!-- Custom Item Input -->
+                    <div class="p-3 border-b bg-orange-50 flex-shrink-0">
+                        <p class="text-xs font-bold text-orange-700 mb-2">✨ เพิ่มเมนูนอกแบบ (Custom)</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="customName" placeholder="ชื่อเมนู" class="flex-grow border rounded px-2 py-1 text-sm">
+                            <input type="number" id="customPrice" placeholder="ราคา" class="w-20 border rounded px-2 py-1 text-sm">
+                            <button onclick="addCustomItemToEdit()" class="bg-orange-500 text-white px-3 rounded text-sm font-bold hover:bg-orange-600">เพิ่ม</button>
+                        </div>
+                    </div>
+
+                    <div id="editMenuList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 40vh;"></div>
+                </div>
+
+                <!-- Right: Current Items (Editable) -->
+                <div class="md:w-1/2 flex flex-col overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
+                        <p class="font-bold text-gray-700 text-sm">รายการในบิล (แก้ไขได้)</p>
+                    </div>
+                    <div id="editCurrentItems" class="p-3 overflow-y-auto flex-grow space-y-3" style="max-height: 40vh;"></div>
+                    
+                    <div class="p-3 border-t bg-white flex-shrink-0">
+                         <!-- Discount Summary in Modal -->
+                         <div class="mb-2 border p-2 rounded-lg bg-yellow-50 text-xs">
+                            <div class="flex justify-between">
+                                <span>ยอดรวมเดิม:</span>
+                                <span id="editOriginalTotal">฿0</span>
+                            </div>
+                            <div class="flex justify-between text-red-600 font-bold">
+                                <span>ส่วนลดจากการแก้ไข:</span>
+                                <span id="editDiscountTotal">- ฿0</span>
+                            </div>
+                            <div class="flex justify-between font-bold text-green-700 text-base border-t mt-1 pt-1">
+                                <span>ยอดสุทธิ:</span>
+                                <span id="editTotalPrice">฿0</span>
+                            </div>
+                         </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="saveEditChanges()" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow text-sm transition">💾 บันทึกการแก้ไข</button>
+                            <button onclick="deleteEntireOrder()" class="w-full bg-red-100 hover:bg-red-200 text-red-600 py-2 rounded-lg font-bold shadow text-sm transition">🗑️ ยกเลิกออเดอร์</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Quick Order Modal -->
     <div id="quickOrderModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-3 transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
-            <!-- Header -->
             <div class="p-4 border-b flex justify-between items-center bg-orange-500 rounded-t-2xl flex-shrink-0">
                 <div>
                     <h2 class="text-xl font-bold text-white">🛒 สั่งอาหารหน้าร้าน</h2>
@@ -91,19 +158,13 @@
                 </div>
                 <button onclick="closeQuickOrder()" class="text-white text-2xl hover:opacity-70 font-bold">&times;</button>
             </div>
-
-            <!-- Body: เมนู + ตะกร้า -->
             <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
-
-                <!-- ฝั่งซ้าย: รายการอาหาร -->
                 <div class="md:w-1/2 border-r border-gray-100 flex flex-col overflow-hidden">
                     <div class="p-3 border-b bg-gray-50 flex-shrink-0">
                         <input type="text" id="qoSearch" placeholder="🔍 ค้นหาเมนู..." oninput="renderQuickMenu()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400">
                     </div>
                     <div id="qoMenuList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 45vh;"></div>
                 </div>
-
-                <!-- ฝั่งขวา: ตะกร้า -->
                 <div class="md:w-1/2 flex flex-col overflow-hidden">
                     <div class="p-3 border-b bg-gray-50 flex-shrink-0">
                         <p class="font-bold text-gray-700 text-sm">📭 รายการที่เลือก (<span id="qoCartCount">0</span>)</p>
@@ -111,11 +172,9 @@
                     <div id="qoCartList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 35vh;">
                         <p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>
                     </div>
-
-                    <!-- ชื่อลูกค้า & ยอดรวม -->
                     <div class="p-3 border-t bg-white flex-shrink-0">
                         <div class="mb-2">
-                            <label class="text-xs font-medium text-gray-500 mb-1 block">ชื่อลูกค้า / หมายเลขคิว (ไม่ใส่ก็ได้)</label>
+                            <label class="text-xs font-medium text-gray-500 mb-1 block">ชื่อลูกค้า / หมายเลขคิว</label>
                             <input type="text" id="qoCustomerName" placeholder="เช่น คุณแก้ม, คิวที่ 5..." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400" maxlength="30">
                         </div>
                         <div class="flex justify-between items-center mb-3">
@@ -134,6 +193,7 @@
     <script>
         const socket = io();
         let orders = [];
+        let menuData = []; 
         
         // --- Screen Wake Lock ---
         let wakeLock = null;
@@ -143,7 +203,11 @@
 
         async function loadInitialOrders() {
             const res = await fetch('/api/orders');
-            orders = await res.json();
+            orders = await res.json(); // Note: This fetches ALL orders (including paid)
+            
+            const menuRes = await fetch('/api/menu');
+            menuData = await menuRes.json();
+            
             render();
         }
 
@@ -193,22 +257,11 @@
             } catch (err) { alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
         }
 
-        async function removeItemFromOrder(orderId, itemId) {
-            if(!confirm('ยืนยันการลบรายการนี้?')) return;
-            const order = orders.find(o => o.id === orderId); if(!order) return;
-            const newItems = order.items.filter(i => i.id !== itemId);
-            const res = await fetch(`/api/orders/${orderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: newItems }) });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.deleted) { orders = orders.filter(o => o.id !== orderId); } else { order.items = newItems; order.totalPrice = data.totalPrice; }
-                render();
-            } else { alert('เกิดข้อผิดพลาดในการลบ'); }
-        }
-
         function render() {
             const list = document.getElementById('orderList');
             const empty = document.getElementById('emptyState');
             
+            // Filter only active orders for the main view
             const activeOrders = orders.filter(o => o.status !== 'paid');
             const pendingCount = orders.filter(o => o.status === 'new' || o.status === 'cooking').length;
             document.getElementById('countBadge').innerText = `${pendingCount} รอทำ`;
@@ -229,9 +282,19 @@
                 const borderClass = hasNew ? 'border-red-500 border-2' : 'border-gray-200';
                 const headerBg = hasNew ? 'bg-red-50' : 'bg-white';
                 const allDone = tableOrders.every(o => o.status === 'done');
-                const grandTotal = tableOrders.reduce((sum, o) => sum + o.totalPrice, 0);
                 
-                // หา pax จาก order แรกของโต๊ะ
+                // Calculate Totals
+                let grandTotal = 0;
+                let totalOriginal = 0;
+                tableOrders.forEach(o => {
+                    grandTotal += o.totalPrice;
+                    o.items.forEach(i => {
+                        totalOriginal += (i.originalPrice || i.price) * i.qty;
+                    });
+                });
+                const discountAmount = totalOriginal - grandTotal;
+                const discountPercent = totalOriginal > 0 ? Math.round((discountAmount / totalOriginal) * 100) : 0;
+
                 const paxCount = tableOrders[0].pax || '-';
 
                 html += `
@@ -254,20 +317,22 @@
                                 return `
                                 <div class="p-3">
                                     <div class="flex justify-between items-center mb-1">
-                                        <span class="text-xs text-gray-400">Order #${order.id}</span>
+                                        <span class="text-xs text-gray-400">Order #${order.id.substring(0,4)}...</span>
                                         ${statusHtml}
                                     </div>
                                     <div class="text-sm text-gray-700 space-y-1">
-                                        ${order.items.map(i => `
+                                        ${order.items.map(i => {
+                                            const disc = (i.originalPrice || i.price) - i.price;
+                                            const discText = disc > 0 ? `<span class="text-red-500 text-xs">(ลด ${disc})</span>` : '';
+                                            const customText = i.isCustom ? `<span class="bg-orange-100 text-orange-600 text-xs px-1 rounded ml-1">พิเศษ</span>` : '';
+                                            return `
                                             <div class="flex justify-between items-center group">
                                                 <div class="flex-grow">
-                                                    <span>• ${i.name} <span class="font-bold">x${i.qty}</span></span>
-                                                    <!-- แสดงหมายเหตุถ้ามี -->
+                                                    <span>• ${i.name} x${i.qty} ${customText} ${discText}</span>
                                                     ${i.note ? `<p class="text-xs text-blue-600 font-medium mt-0.5">📝 ${i.note}</p>` : ''}
                                                 </div>
-                                                <button onclick="removeItemFromOrder('${order.id}', '${i.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-50 group-hover:opacity-100 transition font-bold">❌</button>
                                             </div>
-                                        `).join('')}
+                                        `}).join('')}
                                     </div>
                                     <div class="flex justify-between items-center mt-2">
                                         <span class="font-bold text-blue-600">฿${order.totalPrice}</span>
@@ -277,9 +342,28 @@
                             }).join('')}
                         </div>
 
-                        <div class="p-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                            <span class="text-gray-600 font-semibold">ยอดรวมทั้งหมด:</span>
-                            <span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>
+                        <!-- Payment Section -->
+                        <div class="p-3 bg-gray-50 border-t border-gray-200">
+                            ${discountAmount > 0 ? `
+                            <div class="text-sm mb-2 border-b pb-2 border-dashed">
+                                <div class="flex justify-between text-gray-500">
+                                    <span>ราคาต้นทาง:</span>
+                                    <span>฿${totalOriginal.toLocaleString()}</span>
+                                </div>
+                                <div class="flex justify-between text-red-500 font-bold">
+                                    <span>ส่วนลดจาก Admin:</span>
+                                    <span>- ฿${discountAmount.toLocaleString()} (${discountPercent}%)</span>
+                                </div>
+                            </div>` : ''}
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-gray-600 font-semibold">ยอดที่ต้องชำระ:</span>
+                                <span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>
+                            </div>
+                            
+                            <!-- Edit Button -->
+                            <button onclick="openEditModal('${tableNo}')" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold shadow text-sm transition mb-2">
+                                📝 แก้ไขบิล / เพิ่มเมนู / ลดราคา
+                            </button>
                         </div>
                         
                         ${allDone ? `
@@ -292,6 +376,7 @@
             list.innerHTML = html;
         }
 
+        // --- Summary Modal ---
         async function openSummaryModal() {
             try {
                 const res = await fetch('/api/orders/summary/today');
@@ -300,7 +385,7 @@
                 document.getElementById('sumTotal').innerText = `฿${data.total.toLocaleString()}`;
                 document.getElementById('sumCash').innerText = `฿${data.cash.toLocaleString()}`;
                 document.getElementById('sumTransfer').innerText = `฿${data.transfer.toLocaleString()}`;
-                // แสดงจำนวนลูกค้า
+                document.getElementById('sumDiscount').innerText = `฿${data.discount.toLocaleString()}`;
                 document.getElementById('sumGuests').innerText = `${data.guests} ท่าน`;
 
                 let listHtml = '';
@@ -325,8 +410,244 @@
             if (box) box.classList.remove('modal-box-active');
         }
 
+        // ===== EDIT ORDER SYSTEM (FIXED) =====
+        let editOrderData = [];
+        let currentEditTableNo = null;
+
+        function openEditModal(tableNo) {
+            currentEditTableNo = tableNo;
+            
+            // [CRITICAL FIX] Filter ONLY active (not paid) orders
+            const tableOrders = orders.filter(o => o.tableNo == tableNo && o.status !== 'paid');
+            
+            editOrderData = [];
+            
+            // Deep copy items
+            tableOrders.forEach(o => {
+                if(o.items && Array.isArray(o.items)) {
+                    o.items.forEach(i => {
+                        editOrderData.push({
+                            ...i,
+                            orderId: o.id,
+                            originalPrice: i.originalPrice || i.price, 
+                            changed: false
+                        });
+                    });
+                }
+            });
+
+            document.getElementById('editTableTitle').innerText = `โต๊ะ ${tableNo}`;
+            
+            const modal = document.getElementById('editModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.add('modal-active');
+            if (box) box.classList.add('modal-box-active');
+
+            renderEditMenu();
+            renderEditCurrentItems();
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.remove('modal-active');
+            if (box) box.classList.remove('modal-box-active');
+            editOrderData = [];
+        }
+
+        function renderEditMenu() {
+            const container = document.getElementById('editMenuList');
+            const query = (document.getElementById('editSearch').value || '').toLowerCase().trim();
+            const available = menuData.filter(m => m.status !== 'unavailable');
+            const filtered = query ? available.filter(m => m.name.toLowerCase().includes(query)) : available;
+
+            container.innerHTML = filtered.map(m => `
+                <div onclick="addItemToEdit('${m.id}')" class="flex items-center gap-2 p-2 rounded border hover:bg-blue-50 cursor-pointer transition text-sm">
+                    <span class="flex-grow">${m.name}</span>
+                    <span class="text-blue-600 font-bold">฿${m.price}</span>
+                    <span class="text-gray-400 text-xs">+ เพิ่ม</span>
+                </div>
+            `).join('');
+        }
+
+        function addItemToEdit(id) {
+            const item = menuData.find(m => m.id === id);
+            if(!item) return;
+            editOrderData.push({
+                id: 'new-' + Date.now(),
+                name: item.name,
+                price: item.price,
+                originalPrice: item.price,
+                qty: 1,
+                note: '',
+                isCustom: false,
+                changed: false
+            });
+            renderEditCurrentItems();
+        }
+
+        function addCustomItemToEdit() {
+            const name = document.getElementById('customName').value.trim();
+            const price = parseFloat(document.getElementById('customPrice').value);
+            if (!name || isNaN(price)) return alert('กรุณากรอกชื่อและราคาให้ครบ');
+
+            editOrderData.push({
+                id: 'custom-' + Date.now(),
+                name: name,
+                price: price,
+                originalPrice: price, 
+                qty: 1,
+                note: '',
+                isCustom: true
+            });
+
+            document.getElementById('customName').value = '';
+            document.getElementById('customPrice').value = '';
+            renderEditCurrentItems();
+        }
+
+        function renderEditCurrentItems() {
+            const container = document.getElementById('editCurrentItems');
+            let total = 0;
+            let originalTotal = 0;
+
+            if (editOrderData.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 text-sm py-10">ไม่มีรายการ</p>';
+                document.getElementById('editTotalPrice').innerText = '฿0';
+                document.getElementById('editOriginalTotal').innerText = '฿0';
+                document.getElementById('editDiscountTotal').innerText = '฿0';
+                return;
+            }
+
+            container.innerHTML = editOrderData.map((item, index) => {
+                total += item.price * item.qty;
+                originalTotal += (item.originalPrice || item.price) * item.qty;
+                
+                const hasDiscount = (item.originalPrice || item.price) > item.price;
+                const discountNote = hasDiscount ? `<span class="block text-red-500 text-xs mt-1">ลดจาก ฿${item.originalPrice} -> ฿${item.price}</span>` : '';
+                
+                return `
+                <div class="bg-gray-50 p-2 rounded-lg border ${item.isCustom ? 'border-orange-300 bg-orange-50' : ''}">
+                    <div class="flex justify-between items-center mb-1">
+                        <input type="text" value='${item.name}' onchange="editItemField(${index}, 'name', this.value)" class="font-bold text-sm bg-transparent border-b border-dashed w-full ${item.isCustom ? 'text-orange-600' : 'text-gray-800'}">
+                        <button onclick="removeEditItem(${index})" class="text-red-400 hover:text-red-600 text-xs ml-2 font-bold">❌</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 items-center text-xs">
+                        <div>
+                            <label class="text-gray-400">ราคาขาย:</label>
+                            <input type="number" value='${item.price}' onchange="editItemField(${index}, 'price', this.value)" class="w-full border rounded px-1 py-0.5 font-bold text-green-600">
+                            ${discountNote}
+                        </div>
+                        <div>
+                            <label class="text-gray-400">จำนวน:</label>
+                            <input type="number" value='${item.qty}' onchange="editItemField(${index}, 'qty', this.value)" class="w-full border rounded px-1 py-0.5">
+                        </div>
+                        <div>
+                            <label class="text-gray-400">หมายเหตุ:</label>
+                            <input type="text" value='${item.note || ''}' onchange="editItemField(${index}, 'note', this.value)" placeholder="-" class="w-full border rounded px-1 py-0.5">
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            
+            const discount = originalTotal - total;
+            document.getElementById('editOriginalTotal').innerText = `฿${originalTotal.toLocaleString()}`;
+            document.getElementById('editDiscountTotal').innerText = `- ฿${discount.toLocaleString()}`;
+            document.getElementById('editTotalPrice').innerText = `฿${total.toLocaleString()}`;
+        }
+
+        function editItemField(index, field, value) {
+            if (editOrderData[index]) {
+                if (field === 'price') {
+                    editOrderData[index].price = parseFloat(value);
+                }
+                else if (field === 'qty') editOrderData[index].qty = parseInt(value);
+                else editOrderData[index][field] = value;
+                
+                renderEditCurrentItems();
+            }
+        }
+
+        function removeEditItem(index) {
+            editOrderData.splice(index, 1);
+            renderEditCurrentItems();
+        }
+
+        async function saveEditChanges() {
+            if (editOrderData.length === 0) return alert('ไม่มีรายการ กรุณากดยกเลิกออเดอร์แทน');
+
+            // [CRITICAL FIX] Only target active orders
+            const tableOrders = orders.filter(o => o.tableNo == currentEditTableNo && o.status !== 'paid');
+            
+            if(tableOrders.length === 0) return alert('Error: No active order found.');
+
+            const mainOrder = tableOrders[0]; 
+            const otherOrders = tableOrders.slice(1);
+
+            const payload = {
+                items: editOrderData.map(i => ({
+                    id: i.id,
+                    name: i.name,
+                    price: Number(i.price),
+                    originalPrice: Number(i.originalPrice),
+                    qty: i.qty,
+                    note: i.note,
+                    isCustom: i.isCustom
+                }))
+            };
+
+            try {
+                const res = await fetch(`/api/orders/${mainOrder.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    // If there were multiple active orders, we merge them by deleting the others
+                    if (otherOrders.length > 0) {
+                        for (const o of otherOrders) {
+                            await fetch(`/api/orders/${o.id}`, { method: 'DELETE' });
+                        }
+                    }
+                    
+                    alert('✅ บันทึกการแก้ไขเรียบร้อย');
+                    closeEditModal();
+                    
+                    // Refresh data
+                    const allOrders = await (await fetch('/api/orders')).json();
+                    orders = allOrders;
+                    render();
+                } else {
+                    const errData = await res.json();
+                    alert('เกิดข้อผิดพลาด: ' + (errData.error || 'Unknown'));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('เชื่อมต่อไม่ได้');
+            }
+        }
+
+        async function deleteEntireOrder() {
+            if(!confirm(`ยกเลิกออเดอร์ทั้งหมดของโต๊ะ ${currentEditTableNo}?`)) return;
+            
+            // [CRITICAL FIX] Only target active orders
+            const tableOrders = orders.filter(o => o.tableNo == currentEditTableNo && o.status !== 'paid');
+            
+            for (const o of tableOrders) {
+                await fetch(`/api/orders/${o.id}`, { method: 'DELETE' });
+            }
+            
+            alert('ยกเลิกออเดอร์เรียบร้อยแล้ว');
+            closeEditModal();
+            
+            const allOrders = await (await fetch('/api/orders')).json();
+            orders = allOrders;
+            render();
+        }
+
         // ===== Quick Order System =====
-        let qoMenuData = [];
         let qoCart = [];
 
         async function openQuickOrder() {
@@ -338,10 +659,6 @@
             modal.classList.add('modal-active');
             if (box) box.classList.add('modal-box-active');
 
-            if (qoMenuData.length === 0) {
-                const res = await fetch('/api/menu');
-                qoMenuData = await res.json();
-            }
             renderQuickMenu();
             renderQuickCart();
         }
@@ -356,20 +673,16 @@
         function renderQuickMenu() {
             const container = document.getElementById('qoMenuList');
             const query = (document.getElementById('qoSearch').value || '').toLowerCase().trim();
-            const available = qoMenuData.filter(m => m.status !== 'unavailable');
+            const available = menuData.filter(m => m.status !== 'unavailable');
             const filtered = query ? available.filter(m => m.name.toLowerCase().includes(query)) : available;
 
-            if (filtered.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ไม่พบเมนู</p>';
-                return;
-            }
+            if (filtered.length === 0) { container.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ไม่พบเมนู</p>'; return; }
 
             container.innerHTML = filtered.map(m => {
                 const inCart = qoCart.find(c => c.id === m.id);
                 const qtyBadge = inCart ? `<span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">${inCart.qty}</span>` : '';
                 return `
                     <div onclick="qoAddItem('${m.id}')" class="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-orange-300 hover:bg-orange-50 cursor-pointer transition group">
-                        <img src="${m.img}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 border" alt="${m.name}">
                         <div class="flex-grow min-w-0">
                             <p class="font-semibold text-gray-800 text-sm truncate">${m.name}</p>
                             <p class="text-orange-500 font-bold text-sm">฿${m.price}</p>
@@ -382,31 +695,18 @@
         }
 
         function qoAddItem(id) {
-            const item = qoMenuData.find(m => m.id === id);
+            const item = menuData.find(m => m.id === id);
             if (!item) return;
             const exist = qoCart.find(c => c.id === id);
             if (exist) exist.qty++;
-            else qoCart.push({ id: item.id, name: item.name, price: item.price, qty: 1, note: '' });
+            else qoCart.push({ id: item.id, name: item.name, price: item.price, originalPrice: item.price, qty: 1, note: '', isCustom: false });
             renderQuickCart();
             renderQuickMenu();
         }
 
-        function qoRemoveItem(index) {
-            qoCart.splice(index, 1);
-            renderQuickCart();
-            renderQuickMenu();
-        }
-
-        function qoChangeQty(index, delta) {
-            qoCart[index].qty += delta;
-            if (qoCart[index].qty <= 0) qoCart.splice(index, 1);
-            renderQuickCart();
-            renderQuickMenu();
-        }
-
-        function qoUpdateNote(index, note) {
-            if (qoCart[index]) qoCart[index].note = note;
-        }
+        function qoRemoveItem(index) { qoCart.splice(index, 1); renderQuickCart(); renderQuickMenu(); }
+        function qoChangeQty(index, delta) { qoCart[index].qty += delta; if (qoCart[index].qty <= 0) qoCart.splice(index, 1); renderQuickCart(); renderQuickMenu(); }
+        function qoUpdateNote(index, note) { if (qoCart[index]) qoCart[index].note = note; }
 
         function renderQuickCart() {
             const list = document.getElementById('qoCartList');
@@ -415,10 +715,7 @@
             document.getElementById('qoCartCount').innerText = count;
             document.getElementById('qoTotalPrice').innerText = `฿${total.toLocaleString()}`;
 
-            if (qoCart.length === 0) {
-                list.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>';
-                return;
-            }
+            if (qoCart.length === 0) { list.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>'; return; }
 
             list.innerHTML = qoCart.map((c, i) => `
                 <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
@@ -426,7 +723,7 @@
                         <span class="font-semibold text-gray-800 text-sm truncate">${c.name}</span>
                         <button onclick="qoRemoveItem(${i})" class="text-red-400 hover:text-red-600 text-xs">❌</button>
                     </div>
-                    <input type="text" placeholder="หมายเหตุ..." value="${c.note}" onchange="qoUpdateNote(${i}, this.value)" class="w-full text-xs bg-white border border-gray-200 rounded px-2 py-1 mb-1 outline-none focus:border-orange-300">
+                    <input type="text" placeholder="หมายเหตุ..." value='${c.note}' onchange="qoUpdateNote(${i}, this.value)" class="w-full text-xs bg-white border border-gray-200 rounded px-2 py-1 mb-1 outline-none focus:border-orange-300">
                     <div class="flex justify-between items-center">
                         <span class="text-orange-500 font-bold text-sm">฿${(c.price * c.qty).toLocaleString()}</span>
                         <div class="flex items-center gap-2">
@@ -447,7 +744,7 @@
             const orderData = {
                 tableNo,
                 pax: 1,
-                items: qoCart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note })),
+                items: qoCart.map(c => ({ id: c.id, name: c.name, price: c.price, originalPrice: c.originalPrice, qty: c.qty, note: c.note, isCustom: c.isCustom })),
                 totalPrice: qoCart.reduce((s, c) => s + c.price * c.qty, 0)
             };
 
@@ -461,12 +758,8 @@
                     const result = await res.json();
                     alert(`✅ ส่งออเดอร์ "${result.tableNo}" เรียบร้อยแล้ว!`);
                     closeQuickOrder();
-                } else {
-                    alert('เกิดข้อผิดพลาดในการส่งออเดอร์');
-                }
-            } catch(e) {
-                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-            }
+                } else { alert('เกิดข้อผิดพลาดในการส่งออเดอร์'); }
+            } catch(e) { alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
         }
 
         loadInitialOrders();
