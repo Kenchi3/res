@@ -13,18 +13,36 @@
         ::-webkit-scrollbar-track { background: #fff7ed; }
         ::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 4px; }
 
-        .menu-card { border: 2px solid #fed7aa; transition: all 0.3s ease; }
-        .menu-card:hover { transform: translateY(-4px); border-color: #f97316; box-shadow: 0 10px 20px rgba(249, 115, 22, 0.15); }
+        .menu-card { border: 2px solid #fed7aa; transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+        .menu-card:hover { transform: translateY(-6px); border-color: #f97316; box-shadow: 0 12px 24px rgba(249, 115, 22, 0.2); }
 
         .section-title { position: relative; padding-left: 1rem; border-bottom: 2px solid #fed7aa; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
         .section-title::before { content: ''; position: absolute; left: 0; top: 0; bottom: calc(0.5rem + 2px); width: 6px; background-color: #f97316; border-radius: 3px; }
         
         .modal-overlay { transition: opacity 0.3s ease; }
-        .modal-content { transition: transform 0.3s ease; }
+        .modal-content { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         
-        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
-        .cart-bounce { animation: bounce 0.3s ease; }
+        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+        .cart-bounce { animation: bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .search-input:focus { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3); }
+
+        /* Premium Transitions */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .fade-in-up {
+            animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .modal-hidden { opacity: 0 !important; pointer-events: none !important; }
+        .modal-box-hidden { transform: scale(0.95) !important; opacity: 0 !important; }
     </style>
 </head>
 <body class="bg-orange-50 pb-32">
@@ -44,7 +62,7 @@
                     </svg>
                     <span id="cartCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-600 shadow-md hidden">0</span>
                 </button>
-                <div class="bg-white text-orange-600 px-3 py-1 rounded-full text-sm font-bold shadow-md">
+                <div id="tableInfoBadge" class="bg-white text-orange-600 px-3 py-1 rounded-full text-sm font-bold shadow-md">
                     โต๊ะ <span id="tableNumDisplay">--</span>
                 </div>
             </div>
@@ -99,19 +117,26 @@
         </div>
     </div>
 
-    <!-- Pax Modal -->
-    <div id="paxModal" class="fixed inset-0 z-[70] flex justify-center items-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <!-- Pax / Takeaway Modal -->
+    <div id="paxModal" class="fixed inset-0 z-[70] flex justify-center items-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 opacity-100 transition-all duration-300">
             <div class="bg-orange-500 p-5 text-center">
-                <h2 class="text-xl font-bold text-white">ยินดีต้อนรับครับ/ค่ะ</h2>
-                <p class="text-orange-100 text-sm mt-1">โปรดระบุจำนวนลูกค้า</p>
+                <h2 class="text-xl font-bold text-white" id="welcomeTitle">ยินดีต้อนรับครับ/ค่ะ</h2>
+                <p class="text-orange-100 text-sm mt-1" id="welcomeSubtitle">โปรดระบุจำนวนลูกค้า</p>
             </div>
-            <div class="p-6 text-center">
+            <!-- Dine-in: จำนวนลูกค้า -->
+            <div id="paxSection" class="p-6 text-center">
                 <input type="number" id="paxInput" min="1" value="2" class="w-24 text-center text-3xl font-bold border-b-4 border-orange-400 outline-none focus:border-orange-600 mx-auto block">
                 <p class="text-gray-500 mt-2 text-sm">ท่าน</p>
             </div>
+            <!-- Takeaway: ชื่อลูกค้า -->
+            <div id="takeawaySection" class="p-6 text-center hidden">
+                <div class="text-5xl mb-3">🛍️</div>
+                <input type="text" id="customerNameInput" placeholder="เช่น คุณแก้ม, คุณบอส..." class="w-full text-center text-lg font-semibold border-b-4 border-orange-400 outline-none focus:border-orange-600 mx-auto block pb-2" maxlength="30">
+                <p class="text-gray-400 mt-3 text-xs">ใส่ชื่อเพื่อสะดวกในการเรียกคิว<br>หากไม่ใส่ ระบบจะออกเลขคิวให้อัตโนมัติ</p>
+            </div>
             <div class="p-4 bg-gray-50">
-                <button onclick="confirmPax()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg transition">
+                <button onclick="confirmPax()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg transition active:scale-95" id="startOrderBtn">
                     เริ่มสั่งอาหาร
                 </button>
             </div>
@@ -119,9 +144,9 @@
     </div>
 
     <!-- Cart Modal -->
-    <div id="cartModal" class="fixed inset-0 z-[60] hidden">
+    <div id="cartModal" class="fixed inset-0 z-[60] flex items-end justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="modal-overlay absolute inset-0 bg-black bg-opacity-50" onclick="closeCart()"></div>
-        <div class="modal-content absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
+        <div class="modal-content w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 z-10">
             <div class="p-4 border-b border-orange-100 flex justify-between items-center sticky top-0 bg-white rounded-t-3xl z-10">
                 <h2 class="text-xl font-bold text-orange-600">🛒 ตรวจสอบรายการ</h2>
                 <button onclick="closeCart()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
@@ -134,7 +159,7 @@
                     <span class="text-gray-600 font-medium">ยอดรวมสุทธิ</span>
                     <span class="text-2xl font-bold text-orange-600" id="modalTotalPrice">฿0</span>
                 </div>
-                <button onclick="confirmOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg hover:from-green-600 transition">
+                <button onclick="confirmOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg hover:from-green-600 transition active:scale-95">
                     ยืนยันและส่งเข้าครัว
                 </button>
             </div>
@@ -144,12 +169,25 @@
     <script>
         const socket = io();
         const pathParts = window.location.pathname.split('/');
-        const tableId = pathParts[2] || 'ไม่ระบุ'; 
-        document.getElementById('tableNumDisplay').innerText = tableId;
+        const tableId = pathParts[2] || 'ไม่ระบุ';
+        const isTakeaway = (tableId.toLowerCase() === 'takeaway' || tableId === 'กลับบ้าน');
 
-        let menuData = []; 
+        // --- ปรับหน้าจอตามโหมด Takeaway ---
+        if (isTakeaway) {
+            document.getElementById('tableInfoBadge').innerHTML = '🛍️ <span>กลับบ้าน</span>';
+            document.getElementById('welcomeTitle').innerText = 'สั่งกลับบ้าน (Takeaway)';
+            document.getElementById('welcomeSubtitle').innerText = 'ระบุชื่อเพื่อเรียกคิวรับอาหาร';
+            document.getElementById('paxSection').classList.add('hidden');
+            document.getElementById('takeawaySection').classList.remove('hidden');
+            document.getElementById('startOrderBtn').innerText = '🛍️ เริ่มสั่งอาหาร';
+        } else {
+            document.getElementById('tableNumDisplay').innerText = tableId;
+        }
+
+        let menuData = [];
         let cart = [];
         let pax = 1;
+        let customerName = '';
 
         document.getElementById('searchInput').addEventListener('input', (e) => {
             renderMenu(e.target.value);
@@ -170,10 +208,21 @@
         loadMenuData();
 
         function confirmPax() {
-            const val = document.getElementById('paxInput').value;
-            if(val < 1) return alert("กรุณาระบุจำนวนลูกค้าอย่างน้อย 1 ท่าน");
-            pax = parseInt(val);
-            document.getElementById('paxModal').classList.add('hidden');
+            if (isTakeaway) {
+                customerName = document.getElementById('customerNameInput').value.trim();
+                pax = 1;
+            } else {
+                const val = document.getElementById('paxInput').value;
+                if(val < 1) return alert("กรุณาระบุจำนวนลูกค้าอย่างน้อย 1 ท่าน");
+                pax = parseInt(val);
+            }
+            const modal = document.getElementById('paxModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            if (box) box.classList.add('modal-box-hidden');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         function renderMenu(searchQuery = '') {
@@ -199,7 +248,7 @@
                 const grid = document.createElement('div');
                 grid.className = 'grid grid-cols-2 md:grid-cols-3 gap-5';
                 
-                filteredItems.forEach(item => {
+                filteredItems.forEach((item, idx) => {
                     const isUnavailable = item.status === 'unavailable';
                     const disabledClass = isUnavailable ? 'opacity-50 bg-gray-100' : 'bg-white';
                     
@@ -211,8 +260,9 @@
                         ? '<div class="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg">หมดชั่วคราว</div>' 
                         : '';
 
+                    const delay = (idx % 6) * 50;
                     grid.innerHTML += `
-                        <div class="menu-card ${disabledClass} rounded-xl shadow overflow-hidden flex flex-col relative">
+                        <div class="menu-card ${disabledClass} rounded-xl shadow overflow-hidden flex flex-col relative fade-in-up" style="animation-delay: ${delay}ms">
                             ${overlayHtml}
                             <div class="relative border-b-2 border-orange-100">
                                 <img src="${item.img}" class="w-full h-36 object-cover ${isUnavailable ? 'grayscale' : ''}" alt="${item.name}">
@@ -311,12 +361,26 @@
 
         function openCart() {
             if(cart.length === 0) return;
-            document.getElementById('cartModal').classList.remove('hidden');
+            const modal = document.getElementById('cartModal');
+            const content = modal.querySelector('.modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            if (content) {
+                content.classList.remove('translate-y-full');
+                content.classList.add('translate-y-0');
+            }
             renderCartList();
         }
 
         function closeCart() {
-            document.getElementById('cartModal').classList.add('hidden');
+            const modal = document.getElementById('cartModal');
+            const content = modal.querySelector('.modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            if (content) {
+                content.classList.add('translate-y-full');
+                content.classList.remove('translate-y-0');
+            }
         }
 
         function renderCartList() {
@@ -361,8 +425,14 @@
                 note: item.note || ""
             }));
 
+            // กำหนด tableNo ตามโหมดการสั่ง
+            let orderTableNo = tableId;
+            if (isTakeaway) {
+                orderTableNo = customerName ? `takeaway-${customerName}` : 'takeaway';
+            }
+
             const orderData = {
-                tableNo: tableId,
+                tableNo: orderTableNo,
                 pax: pax,
                 items: cleanItems,
                 totalPrice: cart.reduce((sum, item) => sum + (item.price * item.qty), 0)
@@ -378,7 +448,10 @@
                 });
 
                 if (response.ok) {
-                    alert(`✅ ส่งออเดอร์จากโต๊ะ ${tableId} (${pax} ท่าน) เรียบร้อยแล้วค่ะ!`);
+                    const successMsg = isTakeaway
+                        ? `✅ ส่งออเดอร์สั่งกลับบ้าน${customerName ? ' (' + customerName + ')' : ''} เรียบร้อยแล้วค่ะ!`
+                        : `✅ ส่งออเดอร์จากโต๊ะ ${tableId} (${pax} ท่าน) เรียบร้อยแล้วค่ะ!`;
+                    alert(successMsg);
                     cart = [];
                     updateUI();
                     document.getElementById('searchInput').value = '';

@@ -3,121 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - สถิติการขาย</title>
+    <title>Admin - Smart Statistics</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- ใช้ Chart.js สำหรับกราฟ -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Kanit', sans-serif; } </style>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); }
+        .slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-12">
 
     <!-- Navbar -->
-    <nav class="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-40 flex justify-between items-center px-6">
-        <h1 class="text-xl font-bold">📈 สถิติการขาย</h1>
-        <a href="/admin03030853khunnor" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
-            ⬅️ กลับหน้าครัว
+    <nav class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 shadow-xl sticky top-0 z-40 flex justify-between items-center px-6">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">📈</span>
+            <div>
+                <h1 class="text-lg md:text-xl font-bold tracking-wide">Smart Statistics</h1>
+                <p class="text-xs text-slate-400">ระบบวิเคราะห์ข้อมูลการขายอัจฉริยะ</p>
+            </div>
+        </div>
+        <a href="/admin03030853khunnor" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-semibold shadow border border-slate-600 transition active:scale-95 flex items-center gap-2">
+            <span>⬅️</span> กลับหน้าครัว
         </a>
     </nav>
 
-    <div class="p-6 max-w-7xl mx-auto">
-        <!-- Filter Section -->
-        <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-4 items-center justify-between">
-            <div class="flex gap-2">
-                <button onclick="setFilter('day')" id="btn-day" class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 text-white transition">วันนี้</button>
-                <button onclick="setFilter('week')" id="btn-week" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">สัปดาห์นี้</button>
-                <button onclick="setFilter('month')" id="btn-month" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">เดือนนี้</button>
-                <button onclick="setFilter('year')" id="btn-year" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">ปีนี้</button>
-                <button onclick="setFilter('all')" id="btn-all" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 hover:bg-gray-300 transition">ทั้งหมด</button>
+    <div class="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+        
+        <!-- Filter & Date Section -->
+        <div class="glass-card p-4 rounded-2xl shadow-sm border border-slate-200/60 flex flex-col sm:flex-row gap-4 items-center justify-between slide-up">
+            <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                <button onclick="setFilter('day')" id="btn-day" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition active:scale-95">วันนี้</button>
+                <button onclick="setFilter('week')" id="btn-week" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition active:scale-95">สัปดาห์นี้</button>
+                <button onclick="setFilter('month')" id="btn-month" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition active:scale-95">เดือนนี้</button>
+                <button onclick="setFilter('year')" id="btn-year" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition active:scale-95">ปีนี้</button>
+                <button onclick="setFilter('all')" id="btn-all" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition active:scale-95">ทั้งหมด</button>
             </div>
-            <div class="text-gray-600 font-semibold">
-                ข้อมูล ณ วันที่: <span id="currentDateDisplay"></span>
+            <div class="text-slate-500 font-semibold text-sm flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-xl">
+                <span>📅</span> ช่วงเวลา: <span id="currentDateDisplay" class="text-slate-800">วันนี้</span>
             </div>
         </div>
 
-        <!-- Summary Cards (เพิ่มตัวเงินสดและโอนเงิน) -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <!-- Total -->
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500 md:col-span-1">
-                <p class="text-gray-500 text-sm">รายได้รวม</p>
-                <p class="text-3xl font-bold text-green-600" id="totalRevenue">฿0</p>
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 slide-up" style="animation-delay: 100ms">
+            <!-- Revenue -->
+            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 p-5 rounded-2xl shadow-lg text-white col-span-2 lg:col-span-1">
+                <p class="text-emerald-100 text-sm font-semibold opacity-90">รายได้รวมทั้งหมด</p>
+                <p class="text-3xl font-black mt-2" id="totalRevenue">฿0</p>
+                <div class="text-xs text-emerald-100/80 mt-2 flex justify-between">
+                    <span>รายได้สุทธิ</span>
+                    <span id="revenueTrend">100%</span>
+                </div>
             </div>
             <!-- Cash -->
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-yellow-500">
-                <p class="text-gray-500 text-sm">💵 เงินสด</p>
-                <p class="text-3xl font-bold text-yellow-600" id="totalCash">฿0</p>
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60">
+                <p class="text-slate-400 text-sm font-medium">💵 เงินสด</p>
+                <p class="text-2xl font-bold text-slate-800 mt-2" id="totalCash">฿0</p>
+                <p class="text-xs text-amber-500 font-bold mt-2" id="cashRatio">0% ของยอดขาย</p>
             </div>
             <!-- Transfer -->
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-purple-500">
-                <p class="text-gray-500 text-sm">🏦 โอนเงิน</p>
-                <p class="text-3xl font-bold text-purple-600" id="totalTransfer">฿0</p>
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60">
+                <p class="text-slate-400 text-sm font-medium">🏦 โอนเงิน</p>
+                <p class="text-2xl font-bold text-slate-800 mt-2" id="totalTransfer">฿0</p>
+                <p class="text-xs text-indigo-500 font-bold mt-2" id="transferRatio">0% ของยอดขาย</p>
             </div>
             <!-- Orders -->
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
-                <p class="text-gray-500 text-sm">จำนวนออเดอร์</p>
-                <p class="text-3xl font-bold text-blue-600" id="totalOrders">0</p>
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60">
+                <p class="text-slate-400 text-sm font-medium">📦 ออเดอร์ทั้งหมด</p>
+                <p class="text-2xl font-bold text-slate-800 mt-2" id="totalOrders">0</p>
+                <p class="text-xs text-blue-500 font-bold mt-2" id="avgItemsPerOrder">0 ชิ้น/ออเดอร์</p>
             </div>
-            <!-- Avg -->
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-orange-500">
-                <p class="text-gray-500 text-sm">เฉลี่ย/ออเดอร์</p>
-                <p class="text-3xl font-bold text-orange-600" id="avgOrder">฿0</p>
+            <!-- Average Spend -->
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60">
+                <p class="text-slate-400 text-sm font-medium">🍽️ เฉลี่ยต่อออเดอร์</p>
+                <p class="text-2xl font-bold text-slate-800 mt-2" id="avgOrder">฿0</p>
+                <p class="text-xs text-rose-500 font-bold mt-2" id="avgGuestSpend">฿0 / คน (ทานในร้าน)</p>
             </div>
         </div>
 
-        <!-- Charts & Lists -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Best Sellers -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">🏆 เมนูขายดี (Top 5)</h2>
-                <div id="topSellers" class="space-y-3">
-                    <!-- Rendered here -->
+        <!-- Smart Insights Section -->
+        <div class="bg-gradient-to-br from-slate-900 to-indigo-950 p-6 rounded-3xl shadow-xl text-white slide-up flex flex-col md:flex-row gap-6 items-start" style="animation-delay: 200ms">
+            <div class="bg-indigo-500/20 p-4 rounded-2xl border border-indigo-400/30 flex-shrink-0 text-center w-full md:w-auto">
+                <span class="text-4xl block">💡</span>
+                <p class="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-2">Smart Insights</p>
+            </div>
+            <div class="space-y-3 flex-grow">
+                <h3 class="text-lg font-bold text-indigo-200">บทวิเคราะห์และข้อเสนอแนะอัจฉริยะ</h3>
+                <div id="smartInsightsList" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-300">
+                    <!-- Insights rendered dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-up" style="animation-delay: 300ms">
+            <!-- Sales Trend (Line/Bar) -->
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60 lg:col-span-2 flex flex-col">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span>📊</span> แนวโน้มยอดขายตามช่วงเวลา
+                    </h2>
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold" id="chartTypeBadge">รายชั่วโมง</span>
+                </div>
+                <div class="flex-grow flex items-center justify-center min-h-[250px]">
+                    <canvas id="salesChart" class="w-full h-full"></canvas>
                 </div>
             </div>
 
-            <!-- Sales Graph -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">📊 กราฟยอดขายรายวัน</h2>
-                <canvas id="salesChart" height="200"></canvas>
+            <!-- Dine-in vs Takeaway Ratio -->
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60 flex flex-col">
+                <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                    <span>🛍️</span> ช่องทางการขาย (Dine-in vs Takeaway)
+                </h2>
+                <div class="flex-grow flex items-center justify-center min-h-[220px]">
+                    <canvas id="diningRatioChart"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4 text-center text-xs">
+                    <div class="bg-indigo-50 p-2 rounded-xl">
+                        <p class="text-slate-400">Dine-in (ในร้าน)</p>
+                        <p class="font-bold text-indigo-600 text-sm" id="dineInCount">0 ออเดอร์</p>
+                    </div>
+                    <div class="bg-amber-50 p-2 rounded-xl">
+                        <p class="text-slate-400">Takeaway (กลับบ้าน)</p>
+                        <p class="font-bold text-amber-600 text-sm" id="takeawayCount">0 ออเดอร์</p>
+                    </div>
+                </div>
             </div>
         </div>
-        
-        <!-- Warning (อัพเดทแล้ว) -->
-        <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-xl shadow text-sm text-blue-800">
-            <p class="font-bold">ℹ️ ข้อมูลถาวร:</p>
-            <p>ข้อมูลถูกจัดเก็บใน MongoDB แล้ว ไม่หายแม้จะ Restart Server ครับ</p>
+
+        <!-- Lower Section (Best Sellers & Categories) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-up" style="animation-delay: 400ms">
+            <!-- Best Sellers Top 5 -->
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60 lg:col-span-2">
+                <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                    <span>🏆</span> 5 อันดับเมนูขายดีที่สุด
+                </h2>
+                <div id="topSellers" class="space-y-3">
+                    <!-- Rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Categories Breakdown -->
+            <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200/60 flex flex-col">
+                <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                    <span>🍕</span> ยอดขายแยกตามหมวดหมู่เมนู
+                </h2>
+                <div class="flex-grow flex items-center justify-center min-h-[200px]">
+                    <canvas id="categoriesChart"></canvas>
+                </div>
+            </div>
         </div>
+
     </div>
 
     <script>
         let allOrders = [];
-        let salesChart = null;
+        let menuItems = [];
+        let charts = {
+            sales: null,
+            dining: null,
+            categories: null
+        };
         let currentFilter = 'day';
 
-        // 1. โหลดข้อมูล
+        // 1. Initialize data fetching
         async function loadData() {
-            const res = await fetch('/api/orders');
-            allOrders = await res.json();
-            // เรียงลำดับข้อมูลจากเก่าไปใหม่เพื่อกราฟ
-            allOrders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            applyFilter();
+            try {
+                // Fetch menu details to determine categories
+                const menuRes = await fetch('/api/menu');
+                menuItems = await menuRes.json();
+
+                // Fetch order details
+                const ordersRes = await fetch('/api/orders');
+                allOrders = await ordersRes.json();
+
+                // Sort orders chronological
+                allOrders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+                applyFilter();
+            } catch (err) {
+                console.error("Error loading statistics data:", err);
+            }
         }
 
-        // 2. ตั้งค่า Filter
+        // 2. Filter Trigger
         function setFilter(type) {
             currentFilter = type;
             
-            // UI Update
+            // Toggle active style on buttons
             document.querySelectorAll('[id^="btn-"]').forEach(btn => {
-                btn.classList.remove('bg-blue-500', 'text-white');
-                btn.classList.add('bg-gray-200');
+                btn.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition active:scale-95";
             });
             const activeBtn = document.getElementById(`btn-${type}`);
-            activeBtn.classList.remove('bg-gray-200');
-            activeBtn.classList.add('bg-blue-500', 'text-white');
+            activeBtn.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition active:scale-95";
             
             applyFilter();
         }
 
+        // 3. Apply Time Filters
         function applyFilter() {
             const now = new Date();
             let filtered = [];
@@ -130,8 +216,9 @@
                     return d.toDateString() === now.toDateString();
                 });
             } else if (currentFilter === 'week') {
-                label = "สัปดาห์นี้";
-                const weekAgo = new Date(new Date().setDate(now.getDate() - 7));
+                label = "7 วันล่าสุด";
+                const weekAgo = new Date();
+                weekAgo.setDate(now.getDate() - 7);
                 filtered = allOrders.filter(o => new Date(o.createdAt) >= weekAgo);
             } else if (currentFilter === 'month') {
                 label = "เดือนนี้";
@@ -151,32 +238,92 @@
             }
 
             document.getElementById('currentDateDisplay').innerText = label;
-            renderStats(filtered);
-            renderChart(filtered);
+            
+            renderDashboard(filtered);
         }
 
-        // 3. คำนวณและแสดงผล (เพิ่มการแยกประเภท)
-        function renderStats(data) {
-            // Summary - แยกประเภท
+        // Helper to find category of an item
+        function getItemCategory(itemName) {
+            const match = menuItems.find(m => m.name === itemName);
+            return match ? match.category : "อื่น ๆ";
+        }
+
+        // 4. Render Dashboard metrics, charts & insights
+        function renderDashboard(data) {
+            // A. Compute Metrics
             let totalCash = 0;
             let totalTransfer = 0;
-
-            data.forEach(o => {
-                if (o.paymentMethod === 'cash') totalCash += o.totalPrice;
-                if (o.paymentMethod === 'transfer') totalTransfer += o.totalPrice;
-            });
+            let totalOrders = data.length;
+            let totalItemsCount = 0;
             
-            const totalRevenue = totalCash + totalTransfer;
-            const totalOrders = data.length;
-            const avg = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+            let totalDineInOrders = 0;
+            let totalTakeawayOrders = 0;
+            
+            let totalDineInRevenue = 0;
+            let totalTakeawayRevenue = 0;
+            
+            let dineInGuests = 0;
 
+            const categoryRevenue = {};
+            const hourlyCounts = Array(24).fill(0);
+            const dailyCounts = {};
+
+            data.forEach(order => {
+                if (order.paymentMethod === 'cash') totalCash += order.totalPrice;
+                if (order.paymentMethod === 'transfer') totalTransfer += order.totalPrice;
+                
+                // Dine-in vs Takeaway
+                const isTakeaway = order.tableNo.toLowerCase().includes('takeaway') || order.tableNo.includes('กลับบ้าน');
+                if (isTakeaway) {
+                    totalTakeawayOrders++;
+                    totalTakeawayRevenue += order.totalPrice;
+                } else {
+                    totalDineInOrders++;
+                    totalDineInRevenue += order.totalPrice;
+                    dineInGuests += order.pax || 0;
+                }
+
+                // Count items count
+                order.items.forEach(item => {
+                    totalItemsCount += item.qty;
+                    // Category breakdown
+                    const category = getItemCategory(item.name);
+                    categoryRevenue[category] = (categoryRevenue[category] || 0) + (item.price * item.qty);
+                });
+
+                // Chronological Groupings
+                if (order.createdAt) {
+                    const d = new Date(order.createdAt);
+                    hourlyCounts[d.getHours()] += order.totalPrice;
+                    
+                    const dateKey = d.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' });
+                    dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + order.totalPrice;
+                }
+            });
+
+            const totalRevenue = totalCash + totalTransfer;
+            const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+            const avgItemsPerOrder = totalOrders > 0 ? totalItemsCount / totalOrders : 0;
+            const avgDineInGuestSpend = dineInGuests > 0 ? totalDineInRevenue / dineInGuests : 0;
+
+            const cashRatio = totalRevenue > 0 ? (totalCash / totalRevenue) * 100 : 0;
+            const transferRatio = totalRevenue > 0 ? (totalTransfer / totalRevenue) * 100 : 0;
+
+            // Update UI elements
             document.getElementById('totalRevenue').innerText = `฿${totalRevenue.toLocaleString()}`;
             document.getElementById('totalCash').innerText = `฿${totalCash.toLocaleString()}`;
+            document.getElementById('cashRatio').innerText = `${cashRatio.toFixed(0)}% ของยอดขาย`;
             document.getElementById('totalTransfer').innerText = `฿${totalTransfer.toLocaleString()}`;
+            document.getElementById('transferRatio').innerText = `${transferRatio.toFixed(0)}% ของยอดขาย`;
             document.getElementById('totalOrders').innerText = totalOrders;
-            document.getElementById('avgOrder').innerText = `฿${avg.toFixed(0)}`;
+            document.getElementById('avgItemsPerOrder').innerText = `${avgItemsPerOrder.toFixed(1)} ชิ้น/ออเดอร์`;
+            document.getElementById('avgOrder').innerText = `฿${avgOrderValue.toFixed(0)}`;
+            document.getElementById('avgGuestSpend').innerText = `฿${avgDineInGuestSpend.toFixed(0)} / คน (ทานในร้าน)`;
+            
+            document.getElementById('dineInCount').innerText = `${totalDineInOrders} ออเดอร์ (฿${totalDineInRevenue.toLocaleString()})`;
+            document.getElementById('takeawayCount').innerText = `${totalTakeawayOrders} ออเดอร์ (฿${totalTakeawayRevenue.toLocaleString()})`;
 
-            // Top Sellers
+            // B. Build Top Sellers List
             const itemsMap = {};
             data.forEach(o => {
                 o.items.forEach(item => {
@@ -193,59 +340,251 @@
 
             const topSellersDiv = document.getElementById('topSellers');
             if (sortedItems.length === 0) {
-                topSellersDiv.innerHTML = '<p class="text-gray-400 text-center py-4">ไม่มีข้อมูล</p>';
+                topSellersDiv.innerHTML = '<p class="text-slate-400 text-center py-6 text-sm">ไม่มีข้อมูลการขายในช่วงเวลานี้</p>';
             } else {
-                topSellersDiv.innerHTML = sortedItems.map((item, index) => `
-                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div class="flex items-center gap-3">
-                            <span class="text-2xl font-bold text-gray-300 w-8">${index + 1}</span>
-                            <div>
-                                <p class="font-semibold text-gray-800">${item.name}</p>
-                                <p class="text-xs text-gray-500">${item.qty} จาน</p>
+                const maxQty = Math.max(...sortedItems.map(i => i.qty));
+                topSellersDiv.innerHTML = sortedItems.map((item, index) => {
+                    const percentage = (item.qty / maxQty) * 100;
+                    return `
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-sm">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-base font-bold ${index === 0 ? 'text-amber-500' : index === 1 ? 'text-slate-400' : 'text-slate-300'} w-6">#${index + 1}</span>
+                                    <span class="font-semibold text-slate-700">${item.name}</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="font-bold text-slate-800">${item.qty} ชิ้น</span>
+                                    <span class="text-slate-400 text-xs ml-2">(฿${item.revenue.toLocaleString()})</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-gradient-to-r from-orange-400 to-orange-500 h-full rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
                             </div>
                         </div>
-                        <span class="font-bold text-green-600">฿${item.revenue.toLocaleString()}</span>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
+
+            // C. Generate Smart AI Insights (Dynamic)
+            generateSmartInsights(data, totalRevenue, totalOrders, totalDineInRevenue, totalTakeawayRevenue, cashRatio, transferRatio, hourlyCounts, avgDineInGuestSpend);
+
+            // D. Load/Reload Charts
+            renderCharts(currentFilter, hourlyCounts, dailyCounts, totalDineInOrders, totalTakeawayOrders, categoryRevenue);
         }
 
-        // 4. กราฟ
-        function renderChart(data) {
-            const dailySales = {};
-            data.forEach(o => {
-                if(!o.createdAt) return;
-                const dateStr = new Date(o.createdAt).toLocaleDateString('th-TH'); 
-                if (!dailySales[dateStr]) dailySales[dateStr] = 0;
-                dailySales[dateStr] += o.totalPrice;
+        // 5. Insights Logic (Dynamic Suggestions Engine)
+        function generateSmartInsights(data, totalRevenue, totalOrders, totalDineIn, totalTakeaway, cashPct, transferPct, hourlyCounts, avgGuestSpend) {
+            const list = document.getElementById('smartInsightsList');
+            const insights = [];
+
+            if (totalOrders === 0) {
+                list.innerHTML = '<p class="text-slate-400 col-span-2">ยังไม่มียอดขายในช่วงเวลานี้สำหรับการทำบทวิเคราะห์</p>';
+                return;
+            }
+
+            // 1. Busy Hours Peak
+            let peakHourValue = -1;
+            let peakHourLabel = 0;
+            hourlyCounts.forEach((rev, hr) => {
+                if (rev > peakHourValue) {
+                    peakHourValue = rev;
+                    peakHourLabel = hr;
+                }
             });
+            if (peakHourValue > 0) {
+                insights.push({
+                    emoji: "⏰",
+                    title: "ช่วงเวลาขายดีสูงสุด (Peak Hours)",
+                    desc: `ช่วงเวลาที่สร้างรายได้ดีที่สุดคือ **${peakHourLabel}:00 - ${peakHourLabel + 1}:00 น.** แนะนำให้เตรียมพนักงานหรือจัดเตรียมวัตถุดิบหลักไว้พร้อมก่อนช่วงเวลานี้`
+                });
+            }
 
-            const labels = Object.keys(dailySales);
-            const values = Object.values(dailySales);
+            // 2. Channel Split Recommendation
+            if (totalDineIn > 0 || totalTakeaway > 0) {
+                const dinePct = (totalDineIn / totalRevenue) * 100;
+                const takeawayPct = (totalTakeaway / totalRevenue) * 100;
+                if (takeawayPct > 40) {
+                    insights.push({
+                        emoji: "🛍️",
+                        title: "กระแสสั่งกลับบ้านสูงเด่น",
+                        desc: `ยอดขายจาก **สั่งกลับบ้าน (Takeaway) คิดเป็น ${takeawayPct.toFixed(0)}%** แนะนำให้มีจุดวางคิวรับของหน้าร้านที่ชัดเจน และจัดวางกล่องใส่อาหารไว้หยิบง่ายในจุดตระเตรียม`
+                    });
+                } else if (dinePct > 70) {
+                    insights.push({
+                        emoji: "🍽️",
+                        title: "ทานในร้านเป็นหลัก",
+                        desc: `ร้านเน้นการบริการ **ทานในร้านถึง ${dinePct.toFixed(0)}%** แนะนำให้เน้นการจัดวางบรรยากาศร้าน และใส่ใจความเร็วในการเสิร์ฟเพื่อสร้างประทับใจให้สเต็กคงความร้อนและเนื้อนุ่ม`
+                    });
+                }
+            }
 
-            const ctx = document.getElementById('salesChart').getContext('2d');
-            
-            if (salesChart) salesChart.destroy();
+            // 3. Payment Preference Analysis
+            if (transferPct > 65) {
+                insights.push({
+                    emoji: "💳",
+                    title: "สังคมไร้เงินสดเด่นชัด",
+                    desc: `ลูกค้าจ่ายแบบ **โอนเงินเป็นส่วนใหญ่ (${transferPct.toFixed(0)}%)** แนะนำให้ติดตั้งป้าย QR Code ชำระเงินให้เห็นชัดเจนบนโต๊ะหรือจุดเช็คบิลเพื่อความรวดเร็วของพนักงาน`
+                });
+            } else if (cashPct > 55) {
+                insights.push({
+                    emoji: "💵",
+                    title: "การทำธุรกรรมด้วยเงินสดสูง",
+                    desc: `ลูกค้าจ่ายแบบ **เงินสดเป็นหลัก (${cashPct.toFixed(0)}%)** พนักงานเช็คบิลและหน้าร้านควรเตรียมเงินทอนใบย่อยให้เพียงพอสำหรับการขายในช่วงชั่วโมงเร่งด่วน`
+                });
+            }
 
-            salesChart = new Chart(ctx, {
-                type: 'bar',
+            // 4. Average Ticket Size Insights
+            if (avgGuestSpend > 0) {
+                if (avgGuestSpend < 200) {
+                    insights.push({
+                        emoji: "🥩",
+                        title: "เพิ่มโอกาสขายพ่วง (Upselling)",
+                        desc: `ยอดใช้จ่ายของลูกค้าเฉลี่ยต่อคนค่อนข้างประหยัดอยู่ที่ **฿${avgGuestSpend.toFixed(0)}** แนะนำให้มีโปรโมชั่นคู่เซ็ต (เช่น สเต็ก + น้ำดื่ม/เฟรนช์ฟรายส์ ราคาพิเศษ) เพื่อเพิ่มยอดใช้จ่ายต่อบิล`
+                    });
+                } else {
+                    insights.push({
+                        emoji: "💎",
+                        title: "ยอดใช้จ่ายต่อคนระดับพรีเมียม",
+                        desc: `ลูกค้าสั่งซื้อเฉลี่ยสูงถึง **฿${avgGuestSpend.toFixed(0)} ต่อท่าน** บ่งบอกว่าลูกค้านิยมสั่งเมนูหลักหรือชุดคู่รักใหญ่ แนะนำรักษามาตรฐานความพรีเมียมของวัตถุดิบและพอร์ชั่นอาหาร`
+                    });
+                }
+            }
+
+            list.innerHTML = insights.map(i => `
+                <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex gap-3">
+                    <span class="text-2xl flex-shrink-0">${i.emoji}</span>
+                    <div class="space-y-1">
+                        <p class="font-bold text-slate-100 text-sm">${i.title}</p>
+                        <p class="text-slate-300 text-xs leading-relaxed">${i.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 6. Draw all Chart.js instances
+        function renderCharts(filter, hourlyData, dailyData, dineCount, takeCount, catData) {
+            // A. Destroy existing charts to prevent overlaps
+            if (charts.sales) charts.sales.destroy();
+            if (charts.dining) charts.dining.destroy();
+            if (charts.categories) charts.categories.destroy();
+
+            // 1. Sales Trend
+            const trendCtx = document.getElementById('salesChart').getContext('2d');
+            let trendLabels = [];
+            let trendValues = [];
+            let chartTypeBadge = "รายชั่วโมง";
+
+            if (filter === 'day') {
+                // Hourly View (Today)
+                trendLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
+                trendValues = hourlyData;
+                chartTypeBadge = "รายชั่วโมงวันนี้";
+            } else {
+                // Daily View (Trend over days)
+                trendLabels = Object.keys(dailyData);
+                trendValues = Object.values(dailyData);
+                chartTypeBadge = "รายวัน";
+            }
+            document.getElementById('chartTypeBadge').innerText = chartTypeBadge;
+
+            charts.sales = new Chart(trendCtx, {
+                type: filter === 'day' ? 'bar' : 'line',
                 data: {
-                    labels: labels,
+                    labels: trendLabels,
                     datasets: [{
                         label: 'ยอดขาย (บาท)',
-                        data: values,
-                        backgroundColor: 'rgba(249, 115, 22, 0.6)',
-                        borderColor: 'rgba(249, 115, 22, 1)',
-                        borderWidth: 1,
-                        borderRadius: 5
+                        data: trendValues,
+                        backgroundColor: 'rgba(249, 115, 22, 0.25)',
+                        borderColor: '#f97316',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#f97316'
                     }]
                 },
                 options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
-                        y: { beginAtZero: true }
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(15, 23, 42, 0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
                     },
                     plugins: {
                         legend: { display: false }
+                    }
+                }
+            });
+
+            // 2. Dining Split Chart (Pie)
+            const dineCtx = document.getElementById('diningRatioChart').getContext('2d');
+            charts.dining = new Chart(dineCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ทานที่ร้าน (Dine-in)', 'กลับบ้าน (Takeaway)'],
+                    datasets: [{
+                        data: [dineCount, takeCount],
+                        backgroundColor: ['#6366f1', '#f59e0b'],
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, font: { family: 'Kanit' } }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            // 3. Category Split Chart (Polar Area or Horizontal Bar)
+            const catCtx = document.getElementById('categoriesChart').getContext('2d');
+            const catLabels = Object.keys(catData);
+            const catValues = Object.values(catData);
+
+            charts.categories = new Chart(catCtx, {
+                type: 'polarArea',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catValues,
+                        backgroundColor: [
+                            'rgba(244, 63, 94, 0.65)',
+                            'rgba(14, 165, 233, 0.65)',
+                            'rgba(168, 85, 247, 0.65)',
+                            'rgba(234, 179, 8, 0.65)',
+                            'rgba(16, 185, 129, 0.65)'
+                        ],
+                        borderColor: [
+                            '#f43f5e',
+                            '#0ea5e9',
+                            '#a855f7',
+                            '#eab308',
+                            '#10b981'
+                        ],
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: { grid: { color: 'rgba(15, 23, 42, 0.05)' } }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 8, font: { family: 'Kanit', size: 10 } }
+                        }
                     }
                 }
             });

@@ -9,11 +9,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Kanit', sans-serif; }
-        .card { animation: slideIn 0.4s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .card { animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08); }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+
+        /* Premium Modal Animations */
+        .modal-active { opacity: 1 !important; pointer-events: auto !important; }
+        .modal-box-active { transform: scale(1) !important; opacity: 1 !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -23,6 +28,7 @@
         <h1 class="text-xl font-bold">👨‍🍳 หน้าครัว (Admin)</h1>
         <div class="flex items-center gap-2 flex-wrap">
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
+            <button onclick="openQuickOrder()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">🛒 สั่งอาหารหน้าร้าน</button>
             <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📈 สถิติ</a>
             <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📋 เมนู</a>
             <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">💰 สรุปยอด</button>
@@ -38,8 +44,8 @@
     </div>
 
     <!-- Summary Modal -->
-    <div id="summaryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div id="summaryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col transform scale-95 opacity-0 transition-all duration-300">
             <div class="p-5 border-b flex justify-between items-center bg-green-600 rounded-t-2xl">
                 <div>
                     <h2 class="text-xl font-bold text-white">📊 สรุปยอดขายวันนี้</h2>
@@ -70,6 +76,57 @@
                 
                 <h3 class="font-bold text-gray-700 mb-2">รายการที่ขาย (วันนี้):</h3>
                 <div id="summaryList" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Order Modal -->
+    <div id="quickOrderModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-3 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+            <!-- Header -->
+            <div class="p-4 border-b flex justify-between items-center bg-orange-500 rounded-t-2xl flex-shrink-0">
+                <div>
+                    <h2 class="text-xl font-bold text-white">🛒 สั่งอาหารหน้าร้าน</h2>
+                    <p class="text-orange-100 text-xs mt-1">สำหรับลูกค้า Walk-in / สั่งกลับบ้าน</p>
+                </div>
+                <button onclick="closeQuickOrder()" class="text-white text-2xl hover:opacity-70 font-bold">&times;</button>
+            </div>
+
+            <!-- Body: เมนู + ตะกร้า -->
+            <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
+
+                <!-- ฝั่งซ้าย: รายการอาหาร -->
+                <div class="md:w-1/2 border-r border-gray-100 flex flex-col overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
+                        <input type="text" id="qoSearch" placeholder="🔍 ค้นหาเมนู..." oninput="renderQuickMenu()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400">
+                    </div>
+                    <div id="qoMenuList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 45vh;"></div>
+                </div>
+
+                <!-- ฝั่งขวา: ตะกร้า -->
+                <div class="md:w-1/2 flex flex-col overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
+                        <p class="font-bold text-gray-700 text-sm">📭 รายการที่เลือก (<span id="qoCartCount">0</span>)</p>
+                    </div>
+                    <div id="qoCartList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 35vh;">
+                        <p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>
+                    </div>
+
+                    <!-- ชื่อลูกค้า & ยอดรวม -->
+                    <div class="p-3 border-t bg-white flex-shrink-0">
+                        <div class="mb-2">
+                            <label class="text-xs font-medium text-gray-500 mb-1 block">ชื่อลูกค้า / หมายเลขคิว (ไม่ใส่ก็ได้)</label>
+                            <input type="text" id="qoCustomerName" placeholder="เช่น คุณแก้ม, คิวที่ 5..." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400" maxlength="30">
+                        </div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-gray-600 font-medium text-sm">ยอดรวม</span>
+                            <span class="text-xl font-bold text-orange-600" id="qoTotalPrice">฿0</span>
+                        </div>
+                        <button onclick="submitQuickOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-base hover:from-green-600 transition active:scale-95">
+                            ✅ ส่งออเดอร์เข้าครัว
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -251,13 +308,166 @@
                     listHtml += `<div class="flex justify-between bg-gray-50 p-2 rounded"><span>${name} (x${itemData.qty})</span><span class="font-semibold">฿${itemData.price * itemData.qty}</span></div>`;
                 }
                 document.getElementById('summaryList').innerHTML = listHtml || '<p class="text-gray-400 text-center">ยังไม่มียอดขายวันนี้</p>';
-                document.getElementById('summaryModal').classList.remove('hidden');
+                
+                const modal = document.getElementById('summaryModal');
+                const box = modal.querySelector('.bg-white');
+                modal.classList.add('modal-active');
+                if (box) box.classList.add('modal-box-active');
             } catch (err) {
                 alert('ไม่สามารถดึงข้อมูลสรุปได้');
             }
         }
 
-        function closeSummaryModal() { document.getElementById('summaryModal').classList.add('hidden'); }
+        function closeSummaryModal() {
+            const modal = document.getElementById('summaryModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.remove('modal-active');
+            if (box) box.classList.remove('modal-box-active');
+        }
+
+        // ===== Quick Order System =====
+        let qoMenuData = [];
+        let qoCart = [];
+
+        async function openQuickOrder() {
+            qoCart = [];
+            document.getElementById('qoCustomerName').value = '';
+            
+            const modal = document.getElementById('quickOrderModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.add('modal-active');
+            if (box) box.classList.add('modal-box-active');
+
+            if (qoMenuData.length === 0) {
+                const res = await fetch('/api/menu');
+                qoMenuData = await res.json();
+            }
+            renderQuickMenu();
+            renderQuickCart();
+        }
+
+        function closeQuickOrder() {
+            const modal = document.getElementById('quickOrderModal');
+            const box = modal.querySelector('.bg-white');
+            modal.classList.remove('modal-active');
+            if (box) box.classList.remove('modal-box-active');
+        }
+
+        function renderQuickMenu() {
+            const container = document.getElementById('qoMenuList');
+            const query = (document.getElementById('qoSearch').value || '').toLowerCase().trim();
+            const available = qoMenuData.filter(m => m.status !== 'unavailable');
+            const filtered = query ? available.filter(m => m.name.toLowerCase().includes(query)) : available;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ไม่พบเมนู</p>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(m => {
+                const inCart = qoCart.find(c => c.id === m.id);
+                const qtyBadge = inCart ? `<span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">${inCart.qty}</span>` : '';
+                return `
+                    <div onclick="qoAddItem('${m.id}')" class="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-orange-300 hover:bg-orange-50 cursor-pointer transition group">
+                        <img src="${m.img}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 border" alt="${m.name}">
+                        <div class="flex-grow min-w-0">
+                            <p class="font-semibold text-gray-800 text-sm truncate">${m.name}</p>
+                            <p class="text-orange-500 font-bold text-sm">฿${m.price}</p>
+                        </div>
+                        ${qtyBadge}
+                        <span class="text-orange-400 opacity-0 group-hover:opacity-100 transition text-lg font-bold">+</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function qoAddItem(id) {
+            const item = qoMenuData.find(m => m.id === id);
+            if (!item) return;
+            const exist = qoCart.find(c => c.id === id);
+            if (exist) exist.qty++;
+            else qoCart.push({ id: item.id, name: item.name, price: item.price, qty: 1, note: '' });
+            renderQuickCart();
+            renderQuickMenu();
+        }
+
+        function qoRemoveItem(index) {
+            qoCart.splice(index, 1);
+            renderQuickCart();
+            renderQuickMenu();
+        }
+
+        function qoChangeQty(index, delta) {
+            qoCart[index].qty += delta;
+            if (qoCart[index].qty <= 0) qoCart.splice(index, 1);
+            renderQuickCart();
+            renderQuickMenu();
+        }
+
+        function qoUpdateNote(index, note) {
+            if (qoCart[index]) qoCart[index].note = note;
+        }
+
+        function renderQuickCart() {
+            const list = document.getElementById('qoCartList');
+            const total = qoCart.reduce((sum, c) => sum + c.price * c.qty, 0);
+            const count = qoCart.reduce((sum, c) => sum + c.qty, 0);
+            document.getElementById('qoCartCount').innerText = count;
+            document.getElementById('qoTotalPrice').innerText = `฿${total.toLocaleString()}`;
+
+            if (qoCart.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>';
+                return;
+            }
+
+            list.innerHTML = qoCart.map((c, i) => `
+                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-semibold text-gray-800 text-sm truncate">${c.name}</span>
+                        <button onclick="qoRemoveItem(${i})" class="text-red-400 hover:text-red-600 text-xs">❌</button>
+                    </div>
+                    <input type="text" placeholder="หมายเหตุ..." value="${c.note}" onchange="qoUpdateNote(${i}, this.value)" class="w-full text-xs bg-white border border-gray-200 rounded px-2 py-1 mb-1 outline-none focus:border-orange-300">
+                    <div class="flex justify-between items-center">
+                        <span class="text-orange-500 font-bold text-sm">฿${(c.price * c.qty).toLocaleString()}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="qoChangeQty(${i}, -1)" class="w-6 h-6 bg-orange-100 text-orange-700 rounded-full font-bold text-sm flex items-center justify-center">-</button>
+                            <span class="w-6 text-center text-sm font-bold">${c.qty}</span>
+                            <button onclick="qoChangeQty(${i}, 1)" class="w-6 h-6 bg-orange-500 text-white rounded-full font-bold text-sm flex items-center justify-center">+</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function submitQuickOrder() {
+            if (qoCart.length === 0) return alert('กรุณาเลือกเมนูอาหารก่อนครับ');
+            const name = document.getElementById('qoCustomerName').value.trim();
+            const tableNo = name ? `takeaway-${name}` : 'takeaway';
+
+            const orderData = {
+                tableNo,
+                pax: 1,
+                items: qoCart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note })),
+                totalPrice: qoCart.reduce((s, c) => s + c.price * c.qty, 0)
+            };
+
+            try {
+                const res = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    alert(`✅ ส่งออเดอร์ "${result.tableNo}" เรียบร้อยแล้ว!`);
+                    closeQuickOrder();
+                } else {
+                    alert('เกิดข้อผิดพลาดในการส่งออเดอร์');
+                }
+            } catch(e) {
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+            }
+        }
 
         loadInitialOrders();
     </script>

@@ -5,6 +5,10 @@ const path = require('path');
 const multer = require('multer');
 require('dotenv').config();
 
+// Fix DNS resolution issues for MongoDB Atlas querySrv
+const dns = require('dns');
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 // --- Cloudinary Setup ---
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
@@ -134,10 +138,41 @@ app.get('/api/orders', async (req, res) => {
     res.json(orders);
 });
 
-// [แก้ไข] POST Order ให้รับค่า pax และ note
+// [แก้ไข] POST Order ให้รับค่า pax, note และรองรับระบบสั่งกลับบ้าน (Takeaway)
 app.post('/api/order', async (req, res) => {
+    let { tableNo, pax, items, totalPrice } = req.body;
+
+    // --- ระบบคิวสั่งกลับบ้านอัจฉริยะ ---
+    if (tableNo === 'takeaway') {
+        // ไม่ระบุชื่อ: รันเลขคิวอัตโนมัติตามจำนวนออเดอร์กลับบ้านของวันนี้
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const todayTakeawayCount = await Order.countDocuments({
+            tableNo: { $regex: /^กลับบ้าน/ },
+            createdAt: { $gte: startOfDay }
+        });
+        tableNo = `กลับบ้าน #${todayTakeawayCount + 1}`;
+    } else if (tableNo.startsWith('takeaway-')) {
+        // ระบุชื่อลูกค้า: ใช้ชื่อเป็นตัวระบุคิว
+        const customerName = tableNo.substring('takeaway-'.length).trim();
+        tableNo = customerName ? `กลับบ้าน (${customerName})` : `กลับบ้าน`;
+        // ถ้าสุดท้ายชื่อว่าง ให้รันเลขคิวเหมือนกัน
+        if (tableNo === 'กลับบ้าน') {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const todayTakeawayCount = await Order.countDocuments({
+                tableNo: { $regex: /^กลับบ้าน/ },
+                createdAt: { $gte: startOfDay }
+            });
+            tableNo = `กลับบ้าน #${todayTakeawayCount + 1}`;
+        }
+    }
+
     const newOrder = new Order({
-        ...req.body, // รับ pax และ items ที่มี note มาด้วย
+        tableNo,
+        pax: pax || 1,
+        items,
+        totalPrice,
         status: 'new',
         time: new Date().toLocaleTimeString('th-TH'),
         createdAt: new Date()
