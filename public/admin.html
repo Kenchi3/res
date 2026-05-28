@@ -247,28 +247,36 @@
 
         async function confirmPayment(tableNo, method) {
             const methodText = method === 'cash' ? 'เงินสด' : 'โอนเงิน';
-            if(!confirm(`ยืนยันชำระบิล โต๊ะ ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
+            if(!confirm(`ยืนยันชำระบิล ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
             
             try {
-                const res = await fetch(`/api/orders/table/${tableNo}/pay`, {
+                // [สำคัญ] ใช้ encodeURIComponent กับ tableNo เพื่อรองรับภาษาไทย, ช่องว่าง และอักขระพิเศษ
+                const safeTableNo = encodeURIComponent(tableNo);
+                
+                const res = await fetch(`/api/orders/table/${safeTableNo}/pay`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ paymentMethod: method })
                 });
                 
                 if (res.ok) {
-                    // Update local state
-                    orders.forEach(o => { if(o.tableNo == tableNo && o.status !== 'paid') { o.status = 'paid'; o.paymentMethod = method; } });
+                    // อัปเดต Status ในหน้าจอทันที
+                    orders.forEach(o => { 
+                        if(o.tableNo == tableNo && o.status !== 'paid') { 
+                            o.status = 'paid'; 
+                            o.paymentMethod = method; 
+                        } 
+                    });
                     render();
                 } else {
-                    // [FIXED] Show actual error from server
+                    // ดึงข้อความ Error จาก Server มาแสดง
                     const errorData = await res.json();
                     console.error('Payment Error:', errorData);
                     alert(`เกิดข้อผิดพลาด: ${errorData.error || res.statusText}`);
                 }
             } catch (err) {
-                console.error('Network Error:', err);
-                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (Network Error)');
+                console.error('Network/Code Error:', err);
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ หรือรูปแบบข้อมูลผิดพลาด');
             }
         }
 
