@@ -41,18 +41,17 @@ const menuSchema = new mongoose.Schema({
 menuSchema.set('toJSON', { virtuals: true });
 const Menu = mongoose.model('Menu', menuSchema);
 
-// [อัปเดต] Order Schema - เพิ่ม originalPrice และ isCustom
 const orderSchema = new mongoose.Schema({
   tableNo: String,
   pax: { type: Number, default: 1 },
   items: [{
     id: String,
     name: String,
-    price: Number, // ราคาขาย (อาจถูกลดแล้ว)
-    originalPrice: Number, // ราคาต้นทาง (สำหรับคำนวณส่วนลด)
+    price: Number,
+    originalPrice: Number,
     qty: Number,
     note: String,
-    isCustom: { type: Boolean, default: false } // เมนูนอกแบบ
+    isCustom: { type: Boolean, default: false }
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
@@ -132,7 +131,6 @@ app.get('/api/orders', async (req, res) => {
     res.json(orders);
 });
 
-// [สำคัญ] POST Order - ต้องเก็บ originalPrice ด้วย
 app.post('/api/order', async (req, res) => {
     let { tableNo, pax, items, totalPrice } = req.body;
 
@@ -158,7 +156,6 @@ app.post('/api/order', async (req, res) => {
         }
     }
 
-    // Ensure originalPrice exists
     const processedItems = items.map(i => ({
         ...i,
         originalPrice: i.originalPrice || i.price, 
@@ -185,7 +182,6 @@ app.delete('/api/orders', async (req, res) => {
     res.json({ success: true });
 });
 
-// [สำคัญ] PUT Order - รองรับการแก้ไขราคาและรายการ
 app.put('/api/orders/:id', async (req, res) => {
     const { id } = req.params;
     const { items, status } = req.body;
@@ -197,7 +193,7 @@ app.put('/api/orders/:id', async (req, res) => {
             id: i.id,
             name: i.name,
             price: Number(i.price),
-            originalPrice: Number(i.originalPrice || i.price), // Keep original for discount calc
+            originalPrice: Number(i.originalPrice || i.price),
             qty: i.qty,
             note: i.note,
             isCustom: i.isCustom || false
@@ -218,28 +214,40 @@ app.put('/api/orders/:id', async (req, res) => {
     res.json(order);
 });
 
-// [เพิ่มใหม่] DELETE Order - ยกเลิกออเดอร์ทั้งก้อน
 app.delete('/api/orders/:id', async (req, res) => {
     await Order.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
+// [Fixed] PAYMENT ROUTE with Error Handling
 app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
-    const { tableNo } = req.params;
-    const { paymentMethod } = req.body;
-    if (!['cash', 'transfer'].includes(paymentMethod)) return res.status(400).json({ error: "Invalid payment method" });
+    try {
+        const { tableNo } = req.params;
+        const { paymentMethod } = req.body;
 
-    await Order.updateMany(
-        { tableNo: tableNo, status: { $ne: 'paid' } }, 
-        { status: 'paid', paymentMethod: paymentMethod }
-    );
+        if (!['cash', 'transfer'].includes(paymentMethod)) {
+            return res.status(400).json({ error: "Invalid payment method" });
+        }
 
-    const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
-    io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
-    res.json({ success: true });
+        // Update orders
+        const result = await Order.updateMany(
+            { tableNo: tableNo, status: { $ne: 'paid' } }, 
+            { status: 'paid', paymentMethod: paymentMethod }
+        );
+
+        // Notify clients via socket
+        const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
+        io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
+        
+        res.json({ success: true, modifiedCount: result.nModified });
+
+    } catch (error) {
+        console.error("Payment Error:", error);
+        res.status(500).json({ error: "Server error during payment" });
+    }
 });
 
-// [อัปเดต] API Summary - คำนวณส่วนลด
+// [Fixed] SUMMARY ROUTE with Error Handling
 app.get('/api/orders/summary/today', async (req, res) => {
     try {
         const now = new Date();

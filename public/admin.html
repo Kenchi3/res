@@ -248,13 +248,28 @@
         async function confirmPayment(tableNo, method) {
             const methodText = method === 'cash' ? 'เงินสด' : 'โอนเงิน';
             if(!confirm(`ยืนยันชำระบิล โต๊ะ ${tableNo} ผ่าน${methodText} ใช่หรือไม่?`)) return;
+            
             try {
-                const res = await fetch(`/api/orders/table/${tableNo}/pay`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentMethod: method }) });
+                const res = await fetch(`/api/orders/table/${tableNo}/pay`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentMethod: method })
+                });
+                
                 if (res.ok) {
-                    orders.forEach(o => { if(o.tableNo == tableNo) { o.status = 'paid'; o.paymentMethod = method; } });
+                    // Update local state
+                    orders.forEach(o => { if(o.tableNo == tableNo && o.status !== 'paid') { o.status = 'paid'; o.paymentMethod = method; } });
                     render();
-                } else { alert('เกิดข้อผิดพลาดในการชำระบิล'); }
-            } catch (err) { alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
+                } else {
+                    // [FIXED] Show actual error from server
+                    const errorData = await res.json();
+                    console.error('Payment Error:', errorData);
+                    alert(`เกิดข้อผิดพลาด: ${errorData.error || res.statusText}`);
+                }
+            } catch (err) {
+                console.error('Network Error:', err);
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (Network Error)');
+            }
         }
 
         function render() {
