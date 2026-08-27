@@ -309,11 +309,18 @@
                 // Calculate Totals
                 let grandTotal = 0;
                 let totalOriginal = 0;
+                let paidTotal = 0;
+                let anyUnpaid = false;
                 tableOrders.forEach(o => {
-                    grandTotal += o.totalPrice;
-                    o.items.forEach(i => {
-                        totalOriginal += (i.originalPrice || i.price) * i.qty;
-                    });
+                    if (!o.isPaid) {
+                        grandTotal += o.totalPrice;
+                        o.items.forEach(i => {
+                            totalOriginal += (i.originalPrice || i.price) * i.qty;
+                        });
+                        anyUnpaid = true;
+                    } else {
+                        paidTotal += o.totalPrice;
+                    }
                 });
                 const discountAmount = totalOriginal - grandTotal;
                 const discountPercent = totalOriginal > 0 ? Math.round((discountAmount / totalOriginal) * 100) : 0;
@@ -337,10 +344,26 @@
                                 else if (order.status === 'cooking') { statusHtml = '<span class="text-yellow-600 font-bold text-xs">🔥 กำลังทำ</span>'; btnHtml = `<button onclick="updateStatus('${order.id}', 'done')" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded font-semibold">เสร็จแล้ว</button>`; }
                                 else { statusHtml = '<span class="text-green-600 font-bold text-xs">✅ เสร็จ</span>'; btnHtml = ''; }
 
+                                if (order.isPaid) {
+                                    statusHtml += '<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold ml-1 inline-block">💵 จ่ายแล้ว</span>';
+                                }
+
+                                const orderDate = order.createdAt ? new Date(order.createdAt) : null;
+                                const dateText = orderDate 
+                                    ? orderDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) 
+                                    : '';
+                                const timeText = orderDate 
+                                    ? orderDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) 
+                                    : (order.time || '');
+                                const dateTimeHtml = dateText ? `${dateText} ${timeText}` : timeText;
+
                                 return `
                                 <div class="p-3">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="text-xs text-gray-400">Order #${order.id.substring(0,4)}...</span>
+                                    <div class="flex justify-between items-start mb-1">
+                                        <div class="flex flex-col">
+                                            <span class="text-xs text-gray-400">Order #${order.id.substring(0,4)}...</span>
+                                            <span class="text-[10px] text-gray-500 font-medium mt-0.5">📅 ${dateTimeHtml}</span>
+                                        </div>
                                         ${statusHtml}
                                     </div>
                                     <div class="text-sm text-gray-700 space-y-1">
@@ -380,7 +403,10 @@
                             </div>` : ''}
                             <div class="flex justify-between items-center mb-3">
                                 <span class="text-gray-600 font-semibold">ยอดที่ต้องชำระ:</span>
-                                <span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>
+                                ${anyUnpaid 
+                                    ? `<span class="text-2xl font-bold text-orange-600">฿${grandTotal.toLocaleString()}</span>` 
+                                    : `<span class="text-lg font-bold text-green-600 flex items-center gap-1">🟢 ชำระแล้ว (฿${paidTotal.toLocaleString()})</span>`
+                                }
                             </div>
                             
                             <!-- Edit Button -->
@@ -389,7 +415,7 @@
                             </button>
                         </div>
                         
-                        ${allDone ? `
+                        ${anyUnpaid ? `
                             <div class="p-3 border-t border-gray-100 grid grid-cols-2 gap-2 bg-white">
                                 <button onclick="confirmPayment('${tableNo}', 'cash')" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">💵 เงินสด</button>
                                 <button onclick="confirmPayment('${tableNo}', 'transfer')" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg font-bold shadow-md transition text-sm">🏦 โอนเงิน</button>

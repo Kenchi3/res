@@ -55,7 +55,12 @@
                 <h1 class="text-xl md:text-2xl font-bold text-white drop-shadow-sm">Steak Khunnor</h1>
             </div>
             
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+                <button onclick="openHistory()" class="bg-white/20 hover:bg-white/30 p-2 rounded-full transition text-white" title="ตรวจสอบสถานะอาหาร">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                </button>
                 <button onclick="openCart()" class="relative bg-white/20 hover:bg-white/30 p-2 rounded-full transition text-white">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -166,8 +171,63 @@
         </div>
     </div>
 
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 z-[60] flex items-end justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="modal-overlay absolute inset-0 bg-black bg-opacity-50" onclick="closeHistory()"></div>
+        <div class="modal-content w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 z-10">
+            <div class="p-4 border-b border-orange-100 flex justify-between items-center sticky top-0 bg-white rounded-t-3xl z-10">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📋</span>
+                    <h2 class="text-xl font-bold text-orange-600">สถานะอาหารที่สั่งแล้ว</h2>
+                </div>
+                <button onclick="closeHistory()" class="text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
+            </div>
+            
+            <div id="historyItemsList" class="p-4 overflow-y-auto flex-grow bg-gray-50 space-y-4">
+                <p class="text-center text-gray-400 py-10">ยังไม่มีประวัติการสั่งอาหาร</p>
+            </div>
+            
+            <div class="p-4 border-t border-orange-100 bg-white">
+                <div class="flex justify-between items-center font-bold text-lg text-gray-800">
+                    <span>ราคารวมทั้งหมด:</span>
+                    <span class="text-2xl text-orange-600" id="historyTotalPrice">฿0</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-2 text-center">หากอาหารเสร็จสิ้นหรือติดขัด สามารถแจ้งพนักงานได้ทันทีครับ</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         const socket = io();
+        let myOrderIds = JSON.parse(localStorage.getItem('steak_khunnor_order_ids') || '[]');
+
+        socket.on('order_updated', (updatedOrder) => {
+            const modal = document.getElementById('historyModal');
+            if (modal && !modal.classList.contains('opacity-0')) {
+                loadHistory();
+            }
+        });
+        socket.on('order_deleted', (deletedId) => {
+            const idx = myOrderIds.indexOf(deletedId);
+            if (idx > -1) {
+                myOrderIds.splice(idx, 1);
+                localStorage.setItem('steak_khunnor_order_ids', JSON.stringify(myOrderIds));
+            }
+            const modal = document.getElementById('historyModal');
+            if (modal && !modal.classList.contains('opacity-0')) {
+                loadHistory();
+            }
+        });
+        socket.on('payment_updated', (data) => {
+            if (data.tableNo == tableId) {
+                myOrderIds = [];
+                localStorage.removeItem('steak_khunnor_order_ids');
+            }
+            const modal = document.getElementById('historyModal');
+            if (modal && !modal.classList.contains('opacity-0')) {
+                loadHistory();
+            }
+        });
         const pathParts = window.location.pathname.split('/');
         const tableId = pathParts[2] || 'ไม่ระบุ';
         const isTakeaway = (tableId.toLowerCase() === 'takeaway' || tableId === 'กลับบ้าน');
@@ -448,6 +508,11 @@
                 });
 
                 if (response.ok) {
+                    const createdOrder = await response.json();
+                    if (createdOrder && (createdOrder.id || createdOrder._id)) {
+                        myOrderIds.push(createdOrder.id || createdOrder._id);
+                        localStorage.setItem('steak_khunnor_order_ids', JSON.stringify(myOrderIds));
+                    }
                     const successMsg = isTakeaway
                         ? `✅ ส่งออเดอร์สั่งกลับบ้าน${customerName ? ' (' + customerName + ')' : ''} เรียบร้อยแล้วค่ะ!`
                         : `✅ ส่งออเดอร์จากโต๊ะ ${tableId} (${pax} ท่าน) เรียบร้อยแล้วค่ะ!`;
@@ -463,6 +528,143 @@
                 console.error('Error:', error);
                 alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
             }
+        }
+
+        // ===== ORDER HISTORY SYSTEM =====
+        function openHistory() {
+            const modal = document.getElementById('historyModal');
+            const content = modal.querySelector('.modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            if (content) {
+                content.classList.remove('translate-y-full');
+                content.classList.add('translate-y-0');
+            }
+            loadHistory();
+        }
+
+        function closeHistory() {
+            const modal = document.getElementById('historyModal');
+            const content = modal.querySelector('.modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            if (content) {
+                content.classList.add('translate-y-full');
+                content.classList.remove('translate-y-0');
+            }
+        }
+
+        async function loadHistory() {
+            const list = document.getElementById('historyItemsList');
+            const priceEl = document.getElementById('historyTotalPrice');
+            
+            let fetchedOrders = [];
+            try {
+                if (isTakeaway) {
+                    if (myOrderIds.length === 0) {
+                        list.innerHTML = '<div class="text-center text-gray-400 py-16"><p class="text-3xl mb-2">🛍️</p><p class="text-sm">ยังไม่มีประวัติการสั่งกลับบ้านในเครื่องนี้</p></div>';
+                        priceEl.innerText = '฿0';
+                        return;
+                    }
+                    const res = await fetch('/api/orders/by-ids', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: myOrderIds })
+                    });
+                    if (res.ok) {
+                        fetchedOrders = await res.json();
+                    }
+                } else {
+                    const res = await fetch(`/api/orders/table/${tableId}/active`);
+                    if (res.ok) {
+                        fetchedOrders = await res.json();
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                list.innerHTML = '<p class="text-center text-red-500 py-10 font-bold">⚠️ เชื่อมต่อเซิร์ฟเวอร์ผิดพลาด</p>';
+                return;
+            }
+            
+            renderHistory(fetchedOrders);
+        }
+
+        function renderHistory(ordersList) {
+            const list = document.getElementById('historyItemsList');
+            const priceEl = document.getElementById('historyTotalPrice');
+            
+            // Filter active unpaid orders
+            const activeOrders = ordersList.filter(o => o.status !== 'paid');
+            
+            if (activeOrders.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-400 py-16"><p class="text-3xl mb-2">🍽️</p><p class="text-sm">ไม่มีออเดอร์ค้างทำหรือกำลังทำอยู่ครับ</p></div>';
+                priceEl.innerText = '฿0';
+                return;
+            }
+            
+            // Sort by newest order first
+            activeOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            
+            let totalSum = 0;
+            let html = '';
+            
+            activeOrders.forEach((order, index) => {
+                totalSum += order.totalPrice;
+                
+                let statusText = '';
+                let statusColorClass = '';
+                
+                if (order.status === 'new') {
+                    statusText = '🔔 รอทำ';
+                    statusColorClass = 'text-red-500 bg-red-50 border-red-200';
+                } else if (order.status === 'cooking') {
+                    statusText = '🔥 กำลังทำ';
+                    statusColorClass = 'text-yellow-600 bg-yellow-50 border-yellow-200';
+                } else {
+                    statusText = '✅ เสิร์ฟแล้ว';
+                    statusColorClass = 'text-green-600 bg-green-50 border-green-200';
+                }
+                
+                const orderTime = order.time || (order.createdAt ? new Date(order.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '');
+                const orderNum = order.id ? order.id.substring(order.id.length - 4).toUpperCase() : (index + 1);
+                
+                html += `
+                <div class="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm overflow-hidden mb-3">
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-orange-50/50">
+                        <div>
+                           <span class="font-bold text-gray-800 text-sm">ออเดอร์ #${orderNum}</span>
+                           <span class="text-gray-400 text-xs ml-2">${orderTime}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            ${order.isPaid ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">จ่ายแล้ว</span>` : ''}
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full border ${statusColorClass}">
+                                ${statusText}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        ${order.items.map(item => {
+                            const customBadge = item.isCustom ? `<span class="bg-orange-100 text-orange-600 text-[10px] px-1 rounded ml-1">พิเศษ</span>` : '';
+                            return `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-medium text-gray-800">• ${item.name} x${item.qty} ${customBadge}</div>
+                                    ${item.note ? `<p class="text-xs text-blue-500 font-medium mt-0.5">📝 ${item.note}</p>` : ''}
+                                </div>
+                                <span class="font-semibold text-gray-700">฿${(item.price * item.qty).toLocaleString()}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-dashed border-gray-100 flex justify-between items-center text-xs">
+                        <span class="text-gray-500">ยอดรวมออเดอร์นี้</span>
+                        <span class="font-bold text-orange-600 text-sm">฿${order.totalPrice.toLocaleString()}</span>
+                    </div>
+                </div>
+                `;
+            });
+            
+            list.innerHTML = html;
+            priceEl.innerText = `฿${totalSum.toLocaleString()}`;
         }
     </script>
 </body>

@@ -55,6 +55,7 @@ const orderSchema = new mongoose.Schema({
   }],
   totalPrice: Number,
   status: { type: String, default: 'new' },
+  isPaid: { type: Boolean, default: false },
   paymentMethod: { type: String, enum: ['cash', 'transfer', null], default: null },
   time: String,
   createdAt: { type: Date, default: Date.now }
@@ -176,6 +177,30 @@ app.post('/api/order', async (req, res) => {
     res.status(201).json(newOrder);
 });
 
+// --- GET ACTIVE ORDERS BY TABLE NO ---
+app.get('/api/orders/table/:tableNo/active', async (req, res) => {
+    try {
+        const { tableNo } = req.params;
+        const orders = await Order.find({ tableNo, status: { $ne: 'paid' } });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch active orders for table' });
+    }
+});
+
+// --- POST ACTIVE ORDERS BY IDS ---
+app.post('/api/orders/by-ids', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) return res.status(400).json({ error: 'Invalid IDs format' });
+        const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+        const orders = await Order.find({ _id: { $in: validIds } });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch orders by IDs' });
+    }
+});
+
 app.delete('/api/orders', async (req, res) => {
     await Order.deleteMany({});
     io.emit('orders_cleared');
@@ -204,18 +229,26 @@ app.put('/api/orders/:id', async (req, res) => {
         
         if (order.items.length === 0) {
             await Order.findByIdAndDelete(id);
+            io.emit('order_deleted', id);
             return res.json({ success: true, deleted: true });
         }
     }
     
-    if (status) order.status = status;
+    if (status) {
+        order.status = status;
+        if (status === 'done' && order.isPaid) {
+            order.status = 'paid';
+        }
+    }
     
     await order.save();
+    io.emit('order_updated', order);
     res.json(order);
 });
 
 app.delete('/api/orders/:id', async (req, res) => {
     await Order.findByIdAndDelete(req.params.id);
+    io.emit('order_deleted', req.params.id);
     res.json({ success: true });
 });
 
@@ -232,14 +265,20 @@ app.put('/api/orders/table/:tableNo/pay', async (req, res) => {
         // Update orders
         const result = await Order.updateMany(
             { tableNo: tableNo, status: { $ne: 'paid' } }, 
-            { status: 'paid', paymentMethod: paymentMethod }
+            { isPaid: true, paymentMethod: paymentMethod }
+        );
+
+        // For orders that are already done, transition status to 'paid'
+        await Order.updateMany(
+            { tableNo: tableNo, status: 'done', isPaid: true },
+            { status: 'paid' }
         );
 
         // Notify clients via socket
-        const updatedOrders = await Order.find({ tableNo: tableNo, status: 'paid' });
+        const updatedOrders = await Order.find({ tableNo: tableNo, isPaid: true });
         io.emit('payment_updated', { tableNo, paymentMethod, orders: updatedOrders });
         
-        res.json({ success: true, modifiedCount: result.nModified });
+        res.json({ success: true, modifiedCount: result.modifiedCount || result.nModified });
 
     } catch (error) {
         console.error("Payment Error:", error);
@@ -255,7 +294,7 @@ app.get('/api/orders/summary/today', async (req, res) => {
         startOfDay.setHours(0, 0, 0, 0);
         
         const paidOrders = await Order.find({ 
-            status: 'paid',
+            isPaid: true,
             createdAt: { $gte: startOfDay } 
         });
 
