@@ -17,6 +17,8 @@
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
         .modal-active { opacity: 1 !important; pointer-events: auto !important; }
         .modal-box-active { transform: scale(1) !important; opacity: 1 !important; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -148,41 +150,87 @@
         </div>
     </div>
 
-    <!-- Quick Order Modal -->
-    <div id="quickOrderModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-3 transition-opacity duration-300 opacity-0 pointer-events-none">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
-            <div class="p-4 border-b flex justify-between items-center bg-orange-500 rounded-t-2xl flex-shrink-0">
-                <div>
-                    <h2 class="text-xl font-bold text-white">🛒 สั่งอาหารหน้าร้าน</h2>
-                    <p class="text-orange-100 text-xs mt-1">สำหรับลูกค้า Walk-in / สั่งกลับบ้าน</p>
+    <!-- Quick Order Modal (POS) -->
+    <div id="quickOrderModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-2 sm:p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+            <!-- Modal Header -->
+            <div class="p-4 border-b flex justify-between items-center bg-gradient-to-r from-orange-500 to-orange-600 rounded-t-2xl flex-shrink-0 text-white shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl shadow-inner">🛒</div>
+                    <div>
+                        <h2 class="text-xl font-bold">สั่งอาหารหน้าร้าน (POS)</h2>
+                        <p class="text-orange-100 text-xs">เลือกหมวดหมู่และสั่งอาหารสำหรับลูกค้า Walk-in / โต๊ะหน้าร้าน</p>
+                    </div>
                 </div>
-                <button onclick="closeQuickOrder()" class="text-white text-2xl hover:opacity-70 font-bold">&times;</button>
+                <button onclick="closeQuickOrder()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl font-bold transition">&times;</button>
             </div>
+
+            <!-- Modal Content (2 Columns) -->
             <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
-                <div class="md:w-1/2 border-r border-gray-100 flex flex-col overflow-hidden">
-                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
-                        <input type="text" id="qoSearch" placeholder="🔍 ค้นหาเมนู..." oninput="renderQuickMenu()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400">
+                <!-- Left Panel: Categories, Search & Menu Items -->
+                <div class="md:w-7/12 border-r border-gray-100 flex flex-col overflow-hidden bg-gray-50/50">
+                    <!-- Search & Category Bar -->
+                    <div class="p-3 bg-white border-b space-y-2 flex-shrink-0">
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 text-sm">🔍</span>
+                            <input type="text" id="qoSearch" placeholder="ค้นหาชื่อเมนู หรือ หมวดหมู่..." oninput="renderQuickMenu()" class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-500 focus:bg-white transition">
+                            <button id="qoClearSearchBtn" onclick="clearQoSearch()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 hidden text-xs font-bold">✕</button>
+                        </div>
+                        <!-- Horizontal Category Scroll Tabs -->
+                        <div id="qoCategoryTabs" class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            <!-- Category tabs rendered dynamically -->
+                        </div>
                     </div>
-                    <div id="qoMenuList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 45vh;"></div>
+
+                    <!-- Categorized Menu Items List -->
+                    <div id="qoMenuList" class="p-3 overflow-y-auto flex-grow space-y-4" style="max-height: 52vh;">
+                        <!-- Menu items grouped by category rendered dynamically -->
+                    </div>
                 </div>
-                <div class="md:w-1/2 flex flex-col overflow-hidden">
-                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
-                        <p class="font-bold text-gray-700 text-sm">📭 รายการที่เลือก (<span id="qoCartCount">0</span>)</p>
-                    </div>
-                    <div id="qoCartList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 35vh;">
-                        <p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>
-                    </div>
-                    <div class="p-3 border-t bg-white flex-shrink-0">
-                        <div class="mb-2">
-                            <label class="text-xs font-medium text-gray-500 mb-1 block">ชื่อลูกค้า / หมายเลขคิว</label>
-                            <input type="text" id="qoCustomerName" placeholder="เช่น คุณแก้ม, คิวที่ 5..." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400" maxlength="30">
+
+                <!-- Right Panel: Cart & Order Details -->
+                <div class="md:w-5/12 flex flex-col overflow-hidden bg-white">
+                    <!-- Cart Header -->
+                    <div class="p-3 border-b bg-gray-50 flex justify-between items-center flex-shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700 text-sm">📋 รายการที่เลือก</span>
+                            <span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow-xs" id="qoCartCount">0</span>
                         </div>
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-gray-600 font-medium text-sm">ยอดรวม</span>
-                            <span class="text-xl font-bold text-orange-600" id="qoTotalPrice">฿0</span>
+                        <button onclick="qoClearCart()" id="qoClearCartBtn" class="text-xs text-red-500 hover:text-red-700 font-semibold hidden transition">🗑️ ล้างทั้งหมด</button>
+                    </div>
+
+                    <!-- Cart Items Container -->
+                    <div id="qoCartList" class="p-3 overflow-y-auto flex-grow space-y-2.5" style="max-height: 38vh;">
+                        <p class="text-center text-gray-300 py-10 text-sm">ยังไม่ได้เลือกเมนู</p>
+                    </div>
+
+                    <!-- Cart Footer / Customer Info & Checkout -->
+                    <div class="p-3 border-t bg-gray-50 flex-shrink-0 space-y-2.5">
+                        <!-- Order Type Toggle -->
+                        <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-200 rounded-xl">
+                            <button type="button" onclick="setQoOrderType('takeaway')" id="qoTypeTakeaway" class="py-1.5 px-2 rounded-lg text-xs font-bold transition bg-white text-orange-600 shadow-sm flex items-center justify-center gap-1">
+                                🥡 กลับบ้าน
+                            </button>
+                            <button type="button" onclick="setQoOrderType('dinein')" id="qoTypeDinein" class="py-1.5 px-2 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 transition flex items-center justify-center gap-1">
+                                🍽️ ทานที่ร้าน
+                            </button>
                         </div>
-                        <button onclick="submitQuickOrder()" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold shadow-lg text-base hover:from-green-600 transition active:scale-95">
-                            ✅ ส่งออเดอร์เข้าครัว
+
+                        <!-- Customer Name / Table Input -->
+                        <div>
+                            <label id="qoTargetLabel" class="text-xs font-semibold text-gray-600 mb-1 block">ชื่อลูกค้า / หมายเลขคิว (กลับบ้าน)</label>
+                            <input type="text" id="qoCustomerName" placeholder="เช่น คุณสมชาย, คิว 5..." class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:border-orange-500 transition" maxlength="30">
+                        </div>
+
+                        <!-- Total Price -->
+                        <div class="flex justify-between items-center pt-1 border-t border-gray-200">
+                            <span class="text-gray-600 font-semibold text-sm">ยอดรวมทั้งสิ้น</span>
+                            <span class="text-2xl font-black text-orange-600" id="qoTotalPrice">฿0</span>
+                        </div>
+
+                        <!-- Send Order Button -->
+                        <button onclick="submitQuickOrder()" id="qoSubmitBtn" class="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white py-3 rounded-xl font-bold shadow-lg text-base transition active:scale-95 flex items-center justify-center gap-2">
+                            <span>✅ ส่งออเดอร์เข้าครัว</span>
                         </button>
                     </div>
                 </div>
@@ -696,18 +744,29 @@
             render();
         }
 
-        // ===== Quick Order System =====
+        // ===== Quick Order System (POS) =====
         let qoCart = [];
+        let qoSelectedCategory = 'all';
+        let qoOrderType = 'takeaway'; // 'takeaway' | 'dinein'
 
         async function openQuickOrder() {
             qoCart = [];
-            document.getElementById('qoCustomerName').value = '';
+            qoSelectedCategory = 'all';
+            qoOrderType = 'takeaway';
+            
+            const customerInput = document.getElementById('qoCustomerName');
+            const searchInput = document.getElementById('qoSearch');
+            if (customerInput) customerInput.value = '';
+            if (searchInput) searchInput.value = '';
+            
+            updateQoTypeUI();
             
             const modal = document.getElementById('quickOrderModal');
             const box = modal.querySelector('.bg-white');
             modal.classList.add('modal-active');
             if (box) box.classList.add('modal-box-active');
 
+            renderQuickCategories();
             renderQuickMenu();
             renderQuickCart();
         }
@@ -719,66 +778,266 @@
             if (box) box.classList.remove('modal-box-active');
         }
 
+        function setQoOrderType(type) {
+            qoOrderType = type;
+            updateQoTypeUI();
+        }
+
+        function updateQoTypeUI() {
+            const takeawayBtn = document.getElementById('qoTypeTakeaway');
+            const dineinBtn = document.getElementById('qoTypeDinein');
+            const targetLabel = document.getElementById('qoTargetLabel');
+            const targetInput = document.getElementById('qoCustomerName');
+
+            if (!takeawayBtn || !dineinBtn || !targetLabel || !targetInput) return;
+
+            if (qoOrderType === 'takeaway') {
+                takeawayBtn.className = 'py-1.5 px-2 rounded-lg text-xs font-bold transition bg-white text-orange-600 shadow-sm flex items-center justify-center gap-1';
+                dineinBtn.className = 'py-1.5 px-2 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 transition flex items-center justify-center gap-1';
+                targetLabel.innerText = 'ชื่อลูกค้า / หมายเลขคิว (กลับบ้าน)';
+                targetInput.placeholder = 'เช่น คุณสมชาย, คิว 5...';
+            } else {
+                dineinBtn.className = 'py-1.5 px-2 rounded-lg text-xs font-bold transition bg-white text-orange-600 shadow-sm flex items-center justify-center gap-1';
+                takeawayBtn.className = 'py-1.5 px-2 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-800 transition flex items-center justify-center gap-1';
+                targetLabel.innerText = 'หมายเลขโต๊ะ (ทานที่ร้าน)';
+                targetInput.placeholder = 'เช่น โต๊ะ 1, โต๊ะ 2, หน้าร้าน...';
+            }
+        }
+
+        function clearQoSearch() {
+            const searchInput = document.getElementById('qoSearch');
+            const clearBtn = document.getElementById('qoClearSearchBtn');
+            if (searchInput) searchInput.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderQuickMenu();
+        }
+
+        function renderQuickCategories() {
+            const tabsContainer = document.getElementById('qoCategoryTabs');
+            if (!tabsContainer) return;
+
+            const available = (menuData || []).filter(m => m.status !== 'unavailable');
+            
+            // Extract distinct categories and their item counts
+            const categoryCounts = {};
+            available.forEach(m => {
+                const cat = (m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป';
+                categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+            });
+
+            const categories = Object.keys(categoryCounts);
+
+            let html = `
+                <button type="button" onclick="setQoCategory('all')" class="px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs flex items-center gap-1.5 ${qoSelectedCategory === 'all' ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-700'}">
+                    <span>ทั้งหมด</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded-full ${qoSelectedCategory === 'all' ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}">${available.length}</span>
+                </button>
+            `;
+
+            categories.forEach(cat => {
+                const isSelected = qoSelectedCategory === cat;
+                html += `
+                    <button type="button" onclick="setQoCategory('${cat}')" class="px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs flex items-center gap-1.5 ${isSelected ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-700'}">
+                        <span>${cat}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}">${categoryCounts[cat]}</span>
+                    </button>
+                `;
+            });
+
+            tabsContainer.innerHTML = html;
+        }
+
+        function setQoCategory(category) {
+            qoSelectedCategory = category;
+            renderQuickCategories();
+            renderQuickMenu();
+        }
+
         function renderQuickMenu() {
             const container = document.getElementById('qoMenuList');
-            const query = (document.getElementById('qoSearch').value || '').toLowerCase().trim();
-            const available = menuData.filter(m => m.status !== 'unavailable');
-            const filtered = query ? available.filter(m => m.name.toLowerCase().includes(query)) : available;
+            const searchInput = document.getElementById('qoSearch');
+            const clearBtn = document.getElementById('qoClearSearchBtn');
+            if (!container) return;
 
-            if (filtered.length === 0) { container.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ไม่พบเมนู</p>'; return; }
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
-            container.innerHTML = filtered.map(m => {
-                const inCart = qoCart.find(c => c.id === m.id);
-                const qtyBadge = inCart ? `<span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">${inCart.qty}</span>` : '';
-                return `
-                    <div onclick="qoAddItem('${m.id}')" class="flex items-center gap-3 p-2 rounded-lg border border-gray-100 hover:border-orange-300 hover:bg-orange-50 cursor-pointer transition group">
-                        <div class="flex-grow min-w-0">
-                            <p class="font-semibold text-gray-800 text-sm truncate">${m.name}</p>
-                            <p class="text-orange-500 font-bold text-sm">฿${m.price}</p>
-                        </div>
-                        ${qtyBadge}
-                        <span class="text-orange-400 opacity-0 group-hover:opacity-100 transition text-lg font-bold">+</span>
+            if (clearBtn) {
+                if (query) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            const available = (menuData || []).filter(m => m.status !== 'unavailable');
+            
+            // Filter by search query
+            let filtered = available;
+            if (query) {
+                filtered = available.filter(m => 
+                    (m.name && m.name.toLowerCase().includes(query)) ||
+                    (m.category && m.category.toLowerCase().includes(query))
+                );
+            }
+
+            // Filter by selected category tab
+            if (qoSelectedCategory !== 'all') {
+                filtered = filtered.filter(m => ((m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป') === qoSelectedCategory);
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-12">
+                        <p class="text-3xl mb-2">🔍</p>
+                        <p class="text-sm font-semibold text-gray-600">ไม่พบเมนูอาหาร</p>
+                        <p class="text-xs text-gray-400 mt-1">ลองค้นหาด้วยคำอื่น หรือเลือกหมวดหมู่อื่น</p>
                     </div>
                 `;
-            }).join('');
+                return;
+            }
+
+            // Group filtered items by category
+            const grouped = {};
+            filtered.forEach(m => {
+                const cat = (m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(m);
+            });
+
+            let html = '';
+            for (const [catName, items] of Object.entries(grouped)) {
+                html += `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between bg-orange-100/70 border border-orange-200 px-3 py-1.5 rounded-xl">
+                            <span class="font-bold text-xs text-orange-900 flex items-center gap-1.5">
+                                <span>📁</span> ${catName}
+                            </span>
+                            <span class="text-[11px] font-semibold text-orange-700 bg-white px-2 py-0.5 rounded-md shadow-xs">${items.length} รายการ</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${items.map(m => {
+                                const inCart = qoCart.find(c => c.id === m.id);
+                                const isAdded = !!inCart;
+                                const qtyBadge = inCart ? `<span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow-xs">x${inCart.qty}</span>` : '';
+                                const cardBorder = isAdded 
+                                    ? 'border-orange-400 bg-orange-50/50 ring-1 ring-orange-400 shadow-sm' 
+                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/20';
+
+                                const imgHtml = m.img 
+                                    ? `<img src="${m.img}" alt="${m.name}" class="w-11 h-11 rounded-lg object-cover flex-shrink-0 border border-gray-100" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'w-11 h-11 rounded-lg bg-orange-100 text-orange-500 font-bold flex items-center justify-center flex-shrink-0 text-base\\'>🍽️</div>'">` 
+                                    : `<div class="w-11 h-11 rounded-lg bg-orange-100 text-orange-500 font-bold flex items-center justify-center flex-shrink-0 text-base">🍽️</div>`;
+
+                                return `
+                                    <div onclick="qoAddItem('${m.id}')" class="flex items-center gap-2.5 p-2 rounded-xl border ${cardBorder} cursor-pointer transition active:scale-[0.98] group">
+                                        ${imgHtml}
+                                        <div class="flex-grow min-w-0">
+                                            <p class="font-bold text-gray-800 text-xs sm:text-sm truncate group-hover:text-orange-600 transition" title="${m.name}">${m.name}</p>
+                                            <p class="text-orange-600 font-black text-xs sm:text-sm mt-0.5">฿${m.price}</p>
+                                        </div>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            ${qtyBadge}
+                                            <span class="w-7 h-7 rounded-lg bg-orange-100 group-hover:bg-orange-500 text-orange-600 group-hover:text-white font-bold text-base flex items-center justify-center transition shadow-xs">+</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         function qoAddItem(id) {
-            const item = menuData.find(m => m.id === id);
+            const item = (menuData || []).find(m => m.id === id);
             if (!item) return;
             const exist = qoCart.find(c => c.id === id);
-            if (exist) exist.qty++;
-            else qoCart.push({ id: item.id, name: item.name, price: item.price, originalPrice: item.price, qty: 1, note: '', isCustom: false });
+            if (exist) {
+                exist.qty++;
+            } else {
+                qoCart.push({ 
+                    id: item.id, 
+                    name: item.name, 
+                    price: item.price, 
+                    originalPrice: item.price, 
+                    qty: 1, 
+                    note: '', 
+                    isCustom: false 
+                });
+            }
             renderQuickCart();
             renderQuickMenu();
         }
 
-        function qoRemoveItem(index) { qoCart.splice(index, 1); renderQuickCart(); renderQuickMenu(); }
-        function qoChangeQty(index, delta) { qoCart[index].qty += delta; if (qoCart[index].qty <= 0) qoCart.splice(index, 1); renderQuickCart(); renderQuickMenu(); }
-        function qoUpdateNote(index, note) { if (qoCart[index]) qoCart[index].note = note; }
+        function qoRemoveItem(index) {
+            qoCart.splice(index, 1);
+            renderQuickCart();
+            renderQuickMenu();
+        }
+
+        function qoChangeQty(index, delta) {
+            if (!qoCart[index]) return;
+            qoCart[index].qty += delta;
+            if (qoCart[index].qty <= 0) qoCart.splice(index, 1);
+            renderQuickCart();
+            renderQuickMenu();
+        }
+
+        function qoUpdateNote(index, note) {
+            if (qoCart[index]) qoCart[index].note = note;
+        }
+
+        function qoClearCart() {
+            if (qoCart.length === 0) return;
+            if (!confirm('ต้องการล้างรายการอาหารทั้งหมดในตะกร้าใช่หรือไม่?')) return;
+            qoCart = [];
+            renderQuickCart();
+            renderQuickMenu();
+        }
 
         function renderQuickCart() {
             const list = document.getElementById('qoCartList');
-            const total = qoCart.reduce((sum, c) => sum + c.price * c.qty, 0);
-            const count = qoCart.reduce((sum, c) => sum + c.qty, 0);
-            document.getElementById('qoCartCount').innerText = count;
-            document.getElementById('qoTotalPrice').innerText = `฿${total.toLocaleString()}`;
+            const countElem = document.getElementById('qoCartCount');
+            const totalElem = document.getElementById('qoTotalPrice');
+            const clearBtn = document.getElementById('qoClearCartBtn');
+            if (!list) return;
 
-            if (qoCart.length === 0) { list.innerHTML = '<p class="text-center text-gray-300 py-8 text-sm">ยังไม่ได้เลือกเมนู</p>'; return; }
+            const total = qoCart.reduce((sum, c) => sum + (c.price * c.qty), 0);
+            const count = qoCart.reduce((sum, c) => sum + c.qty, 0);
+            
+            if (countElem) countElem.innerText = count;
+            if (totalElem) totalElem.innerText = `฿${total.toLocaleString()}`;
+
+            if (clearBtn) {
+                if (qoCart.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            if (qoCart.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center text-gray-300 py-10 text-sm">
+                        <p class="text-3xl mb-2">🛒</p>
+                        <p class="font-semibold text-gray-400">ยังไม่ได้เลือกเมนู</p>
+                        <p class="text-xs text-gray-400 mt-1">คลิกที่เมนูด้านซ้ายเพื่อเพิ่มรายการ</p>
+                    </div>
+                `;
+                return;
+            }
 
             list.innerHTML = qoCart.map((c, i) => `
-                <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="font-semibold text-gray-800 text-sm truncate">${c.name}</span>
-                        <button onclick="qoRemoveItem(${i})" class="text-red-400 hover:text-red-600 text-xs">❌</button>
+                <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-200 hover:border-orange-300 transition">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="min-w-0 flex-grow pr-2">
+                            <span class="font-bold text-gray-800 text-xs sm:text-sm block truncate">${c.name}</span>
+                            <span class="text-[11px] text-gray-500">฿${c.price} ต่อหน่วย</span>
+                        </div>
+                        <button onclick="qoRemoveItem(${i})" class="text-gray-400 hover:text-red-500 text-xs p-1 transition" title="ลบรายการ">❌</button>
                     </div>
-                    <input type="text" placeholder="หมายเหตุ..." value='${c.note}' onchange="qoUpdateNote(${i}, this.value)" class="w-full text-xs bg-white border border-gray-200 rounded px-2 py-1 mb-1 outline-none focus:border-orange-300">
-                    <div class="flex justify-between items-center">
-                        <span class="text-orange-500 font-bold text-sm">฿${(c.price * c.qty).toLocaleString()}</span>
-                        <div class="flex items-center gap-2">
-                            <button onclick="qoChangeQty(${i}, -1)" class="w-6 h-6 bg-orange-100 text-orange-700 rounded-full font-bold text-sm flex items-center justify-center">-</button>
-                            <span class="w-6 text-center text-sm font-bold">${c.qty}</span>
-                            <button onclick="qoChangeQty(${i}, 1)" class="w-6 h-6 bg-orange-500 text-white rounded-full font-bold text-sm flex items-center justify-center">+</button>
+                    <input type="text" placeholder="📝 ระบุหมายเหตุ (เช่น ไม่เผ็ด, แยกน้ำ...)" value="${(c.note || '').replace(/"/g, '&quot;')}" onchange="qoUpdateNote(${i}, this.value)" class="w-full text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1 mb-2 outline-none focus:border-orange-400 transition">
+                    <div class="flex justify-between items-center pt-1 border-t border-gray-100">
+                        <span class="text-orange-600 font-bold text-sm">฿${(c.price * c.qty).toLocaleString()}</span>
+                        <div class="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-0.5">
+                            <button onclick="qoChangeQty(${i}, -1)" class="w-6 h-6 bg-gray-100 hover:bg-orange-100 text-gray-700 hover:text-orange-700 rounded-md font-bold text-xs flex items-center justify-center transition active:scale-90">-</button>
+                            <span class="w-7 text-center text-xs font-bold text-gray-800">${c.qty}</span>
+                            <button onclick="qoChangeQty(${i}, 1)" class="w-6 h-6 bg-orange-500 hover:bg-orange-600 text-white rounded-md font-bold text-xs flex items-center justify-center transition active:scale-90">+</button>
                         </div>
                     </div>
                 </div>
@@ -787,14 +1046,36 @@
 
         async function submitQuickOrder() {
             if (qoCart.length === 0) return alert('กรุณาเลือกเมนูอาหารก่อนครับ');
-            const name = document.getElementById('qoCustomerName').value.trim();
-            const tableNo = name ? `takeaway-${name}` : 'takeaway';
+            
+            const rawTarget = (document.getElementById('qoCustomerName').value || '').trim();
+            let tableNo = '';
+            
+            if (qoOrderType === 'takeaway') {
+                tableNo = rawTarget ? `takeaway-${rawTarget}` : 'takeaway';
+            } else {
+                tableNo = rawTarget || 'หน้าร้าน';
+            }
+
+            const submitBtn = document.getElementById('qoSubmitBtn');
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span>⏳ กำลังส่งออเดอร์...</span>';
+            }
 
             const orderData = {
                 tableNo,
                 pax: 1,
-                items: qoCart.map(c => ({ id: c.id, name: c.name, price: c.price, originalPrice: c.originalPrice, qty: c.qty, note: c.note, isCustom: c.isCustom })),
-                totalPrice: qoCart.reduce((s, c) => s + c.price * c.qty, 0)
+                items: qoCart.map(c => ({ 
+                    id: c.id, 
+                    name: c.name, 
+                    price: c.price, 
+                    originalPrice: c.originalPrice || c.price, 
+                    qty: c.qty, 
+                    note: c.note || '', 
+                    isCustom: c.isCustom || false 
+                })),
+                totalPrice: qoCart.reduce((s, c) => s + (c.price * c.qty), 0)
             };
 
             try {
@@ -803,12 +1084,24 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(orderData)
                 });
+                
                 if (res.ok) {
                     const result = await res.json();
                     alert(`✅ ส่งออเดอร์ "${result.tableNo}" เรียบร้อยแล้ว!`);
                     closeQuickOrder();
-                } else { alert('เกิดข้อผิดพลาดในการส่งออเดอร์'); }
-            } catch(e) { alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
+                } else {
+                    const err = await res.json();
+                    alert('เกิดข้อผิดพลาดในการส่งออเดอร์: ' + (err.error || 'Unknown error'));
+                }
+            } catch(e) {
+                console.error(e);
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            }
         }
 
         loadInitialOrders();
