@@ -78,6 +78,7 @@ app.get('/admin03030853khunnor', (req, res) => res.sendFile(path.join(__dirname,
 app.get('/table/:tableId', (req, res) => res.sendFile(path.join(__dirname, 'public/menu.html')));
 app.get('/admin03030853khunnor/menumanage', (req, res) => res.sendFile(path.join(__dirname, 'public/menuManager.html')));
 app.get('/admin03030853khunnor/statistics', (req, res) => res.sendFile(path.join(__dirname, 'public/statistics.html')));
+app.get('/admin03030853khunnor/orderhistory', (req, res) => res.sendFile(path.join(__dirname, 'public/orderHistory.html')));
 
 // --- API: MENU ---
 app.get('/api/menu', async (req, res) => {
@@ -342,6 +343,65 @@ app.get('/api/orders/summary/today', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to calculate summary' });
+    }
+});
+
+// --- API: ORDER HISTORY (date range filter) ---
+app.get('/api/orders/history', async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        
+        let query = {};
+        
+        if (from || to) {
+            query.createdAt = {};
+            if (from) {
+                // Parse YYYY-MM-DD as Bangkok midnight → UTC
+                const [fy, fm, fd] = from.split('-').map(Number);
+                const fromDate = new Date(Date.UTC(fy, fm - 1, fd, 0, 0, 0, 0));
+                query.createdAt.$gte = fromDate;
+            }
+            if (to) {
+                // Parse YYYY-MM-DD as Bangkok end-of-day → UTC (23:59:59 Bangkok = 16:59:59 UTC)
+                const [ty, tm, td] = to.split('-').map(Number);
+                const toDate = new Date(Date.UTC(ty, tm - 1, td, 23, 59, 59, 999));
+                query.createdAt.$lte = toDate;
+            }
+        }
+        
+        console.log('[OrderHistory] query:', JSON.stringify(query));
+        
+        const orders = await Order.find(query).sort({ createdAt: -1 });
+        
+        // Summary stats
+        let totalRevenue = 0;
+        let totalOrders = orders.length;
+        let paidOrders = 0;
+        let cashTotal = 0;
+        let transferTotal = 0;
+        
+        orders.forEach(o => {
+            if (o.isPaid) {
+                paidOrders++;
+                totalRevenue += o.totalPrice;
+                if (o.paymentMethod === 'cash') cashTotal += o.totalPrice;
+                else if (o.paymentMethod === 'transfer') transferTotal += o.totalPrice;
+            }
+        });
+        
+        res.json({
+            orders,
+            summary: {
+                totalOrders,
+                paidOrders,
+                totalRevenue,
+                cashTotal,
+                transferTotal
+            }
+        });
+    } catch (error) {
+        console.error('Order History Error:', error);
+        res.status(500).json({ error: 'Failed to fetch order history' });
     }
 });
 

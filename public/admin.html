@@ -30,6 +30,7 @@
             <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-bold" id="countBadge">0 รอทำ</span>
             <button onclick="openQuickOrder()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">🛒 สั่งอาหารหน้าร้าน</button>
             <a href="/admin03030853khunnor/statistics" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📈 สถิติ</a>
+            <a href="/admin03030853khunnor/orderhistory" class="bg-indigo-500 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📋 ประวัติออเดอร์</a>
             <a href="/admin03030853khunnor/menumanage" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">📋 เมนู</a>
             <button onclick="openSummaryModal()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">💰 สรุปยอด</button>
         </div>
@@ -99,8 +100,16 @@
             <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
                 <!-- Left: Add Items -->
                 <div class="md:w-1/2 border-r border-gray-100 flex flex-col overflow-hidden">
-                    <div class="p-3 border-b bg-gray-50 flex-shrink-0">
-                        <input type="text" id="editSearch" placeholder="🔍 ค้นหาเมนู..." oninput="renderEditMenu()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400">
+                    <div class="p-3 border-b bg-gray-50 flex-shrink-0 space-y-2">
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 text-sm">🔍</span>
+                            <input type="text" id="editSearch" placeholder="ค้นหาชื่อเมนู หรือ หมวดหมู่..." oninput="renderEditMenu()" class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-gray-200 rounded-xl outline-none focus:border-blue-500 transition">
+                            <button id="editClearSearchBtn" onclick="clearEditSearch()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 hidden text-xs font-bold">✕</button>
+                        </div>
+                        <!-- Category Tabs -->
+                        <div id="editCategoryTabs" class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            <!-- Category tabs rendered dynamically -->
+                        </div>
                     </div>
                     
                     <!-- Custom Item Input -->
@@ -113,7 +122,7 @@
                         </div>
                     </div>
 
-                    <div id="editMenuList" class="p-3 overflow-y-auto flex-grow space-y-2" style="max-height: 40vh;"></div>
+                    <div id="editMenuList" class="p-3 overflow-y-auto flex-grow space-y-4" style="max-height: 38vh;"></div>
                 </div>
 
                 <!-- Right: Current Items (Editable) -->
@@ -510,6 +519,7 @@
         // ===== EDIT ORDER SYSTEM (FIXED) =====
         let editOrderData = [];
         let currentEditTableNo = null;
+        let editSelectedCategory = 'all';
 
         function openEditModal(tableNo) {
             currentEditTableNo = tableNo;
@@ -535,11 +545,18 @@
 
             document.getElementById('editTableTitle').innerText = `โต๊ะ ${tableNo}`;
             
+            editSelectedCategory = 'all';
+            const searchInput = document.getElementById('editSearch');
+            if (searchInput) searchInput.value = '';
+            const clearBtn = document.getElementById('editClearSearchBtn');
+            if (clearBtn) clearBtn.classList.add('hidden');
+
             const modal = document.getElementById('editModal');
             const box = modal.querySelector('.bg-white');
             modal.classList.add('modal-active');
             if (box) box.classList.add('modal-box-active');
 
+            renderEditCategories();
             renderEditMenu();
             renderEditCurrentItems();
         }
@@ -552,19 +569,132 @@
             editOrderData = [];
         }
 
+        function clearEditSearch() {
+            const searchInput = document.getElementById('editSearch');
+            const clearBtn = document.getElementById('editClearSearchBtn');
+            if (searchInput) searchInput.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderEditMenu();
+        }
+
+        function renderEditCategories() {
+            const tabsContainer = document.getElementById('editCategoryTabs');
+            if (!tabsContainer) return;
+
+            const available = (menuData || []).filter(m => m.status !== 'unavailable');
+            
+            const categoryCounts = {};
+            available.forEach(m => {
+                const cat = (m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป';
+                categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+            });
+
+            const categories = Object.keys(categoryCounts);
+
+            let html = `
+                <button type="button" onclick="setEditCategory('all')" class="px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs flex items-center gap-1.5 ${editSelectedCategory === 'all' ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'}">
+                    <span>ทั้งหมด</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded-full ${editSelectedCategory === 'all' ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}">${available.length}</span>
+                </button>
+            `;
+
+            categories.forEach(cat => {
+                const isSelected = editSelectedCategory === cat;
+                html += `
+                    <button type="button" onclick="setEditCategory('${cat.replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs flex items-center gap-1.5 ${isSelected ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'}">
+                        <span>${cat}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-600'}">${categoryCounts[cat]}</span>
+                    </button>
+                `;
+            });
+
+            tabsContainer.innerHTML = html;
+        }
+
+        function setEditCategory(category) {
+            editSelectedCategory = category;
+            renderEditCategories();
+            renderEditMenu();
+        }
+
         function renderEditMenu() {
             const container = document.getElementById('editMenuList');
-            const query = (document.getElementById('editSearch').value || '').toLowerCase().trim();
-            const available = menuData.filter(m => m.status !== 'unavailable');
-            const filtered = query ? available.filter(m => m.name.toLowerCase().includes(query)) : available;
+            const searchInput = document.getElementById('editSearch');
+            const clearBtn = document.getElementById('editClearSearchBtn');
+            if (!container) return;
 
-            container.innerHTML = filtered.map(m => `
-                <div onclick="addItemToEdit('${m.id}')" class="flex items-center gap-2 p-2 rounded border hover:bg-blue-50 cursor-pointer transition text-sm">
-                    <span class="flex-grow">${m.name}</span>
-                    <span class="text-blue-600 font-bold">฿${m.price}</span>
-                    <span class="text-gray-400 text-xs">+ เพิ่ม</span>
-                </div>
-            `).join('');
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+            if (clearBtn) {
+                if (query) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            const available = (menuData || []).filter(m => m.status !== 'unavailable');
+            
+            let filtered = available;
+            if (query) {
+                filtered = available.filter(m => 
+                    (m.name && m.name.toLowerCase().includes(query)) ||
+                    (m.category && m.category.toLowerCase().includes(query))
+                );
+            }
+
+            if (editSelectedCategory !== 'all') {
+                filtered = filtered.filter(m => ((m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป') === editSelectedCategory);
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-400 py-12">
+                        <p class="text-3xl mb-2">🔍</p>
+                        <p class="text-sm font-semibold text-gray-600">ไม่พบเมนูอาหาร</p>
+                        <p class="text-xs text-gray-400 mt-1">ลองค้นหาด้วยคำอื่น หรือเลือกหมวดหมู่อื่น</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const grouped = {};
+            filtered.forEach(m => {
+                const cat = (m.category && m.category.trim()) ? m.category.trim() : 'ทั่วไป';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(m);
+            });
+
+            let html = '';
+            for (const [catName, items] of Object.entries(grouped)) {
+                html += `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between bg-blue-100/70 border border-blue-200 px-3 py-1.5 rounded-xl">
+                            <span class="font-bold text-xs text-blue-900 flex items-center gap-1.5">
+                                <span>📁</span> ${catName}
+                            </span>
+                            <span class="text-[11px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-md shadow-xs">${items.length} รายการ</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            ${items.map(m => {
+                                const imgHtml = m.img 
+                                    ? `<img src="${m.img}" alt="${m.name}" class="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-gray-100" onerror="this.onerror=null;this.style.display='none'">` 
+                                    : `<div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-500 font-bold flex items-center justify-center flex-shrink-0 text-sm">🍽️</div>`;
+
+                                return `
+                                    <div onclick="addItemToEdit('${m.id}')" class="flex items-center gap-2 p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50/50 cursor-pointer transition active:scale-[0.98] group">
+                                        ${imgHtml}
+                                        <div class="flex-grow min-w-0">
+                                            <p class="font-semibold text-gray-800 text-xs truncate group-hover:text-blue-600 transition" title="${m.name}">${m.name}</p>
+                                            <p class="text-blue-600 font-black text-xs mt-0.5">฿${m.price}</p>
+                                        </div>
+                                        <span class="w-6 h-6 rounded-lg bg-blue-100 group-hover:bg-blue-500 text-blue-600 group-hover:text-white font-bold text-sm flex items-center justify-center transition shadow-xs flex-shrink-0">+</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         function addItemToEdit(id) {
